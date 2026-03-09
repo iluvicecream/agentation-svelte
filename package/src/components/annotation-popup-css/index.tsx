@@ -144,6 +144,7 @@ export const AnnotationPopupCSS = forwardRef<AnnotationPopupCSSHandle, Annotatio
     // Handle keyboard
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        e.stopPropagation();
         if (e.nativeEvent.isComposing) return;
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();

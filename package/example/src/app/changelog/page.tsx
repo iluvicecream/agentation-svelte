@@ -30,6 +30,13 @@ function isMajorVersion(version: string): boolean {
 
 const releases: Release[] = [
   {
+    version: "2.3.1",
+    date: "March 9, 2026",
+    changes: [
+      { type: "fixed", text: "Host app keyboard shortcuts firing while typing in annotation text areas and settings inputs" },
+    ],
+  },
+  {
     version: "2.3.0",
     date: "March 7, 2026",
     changes: [

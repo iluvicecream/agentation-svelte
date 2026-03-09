@@ -3705,6 +3705,7 @@ export function PageFeedbackToolbarCSS({
                         "--marker-color": settings.annotationColor,
                       } as React.CSSProperties
                     }
+                    onKeyDown={(e) => e.stopPropagation()}
                     onChange={(e) =>
                       setSettings((s) => ({
                         ...s,
