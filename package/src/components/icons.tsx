@@ -204,11 +204,13 @@ export const IconCopyAlt = ({ size = 16 }: { size?: number }) => (
 export const IconCopyAnimated = ({
   size = 24,
   copied = false,
+  tint,
 }: {
   size?: number;
   copied?: boolean;
+  tint?: string;
 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={tint ? { color: tint, transition: 'color 0.3s ease' } : undefined}>
     {/* Copy icon */}
     <g
       className={`${s.iconState} ${copied ? s.hiddenScaled : s.visibleScaled}`}
@@ -1036,5 +1038,36 @@ export const AnimatedBunny = ({
     >
       ˃ ᵕ ˂
     </text>
+  </svg>
+);
+
+// Layout / grid icon for layout mode
+export const IconLayout = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect
+      x="3"
+      y="3"
+      width="18"
+      height="18"
+      rx="2"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <line
+      x1="3"
+      y1="9"
+      x2="21"
+      y2="9"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <line
+      x1="9"
+      y1="9"
+      x2="9"
+      y2="21"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
   </svg>
 );

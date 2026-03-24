@@ -1463,8 +1463,9 @@ export function SettingsDemo() {
           {/* Header */}
           <div className="sd-header">
             <span className="sd-brand">
-              <span className="sd-brand-slash" style={{ color: currentColor }}>/</span>
-              agentation
+              <svg width="72" height="16" viewBox="0 0 1067 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M832.549 80.1896C838.968 80.1896 844.168 74.9866 844.168 68.5681C844.168 62.1496 838.965 56.9465 832.549 56.9465C826.133 56.9465 820.928 62.1496 820.928 68.5681C820.928 74.9866 826.131 80.1896 832.549 80.1896ZM1066.51 157.056L1052.04 110.39C1048.08 97.598 1036.03 94.462 1025.74 102.584L980.318 141.571C977.981 143.416 983.432 146.27 983.844 143.898L990.826 103.517C992.507 93.7993 988.322 86.3882 975.606 86.6025L919.738 87.3272C914.986 87.4175 918.618 91.6363 918.618 96.4107C918.618 101.185 922.341 103.551 927.245 103.458L976.269 102.389C976.588 102.384 973.621 100.404 973.598 100.536L966.334 144.583C963.593 161.205 978.474 166.177 991.153 155.294L1036.58 116.306L1033.94 115.568L1048.29 161.853C1051.4 172.784 1069.63 167.987 1066.52 157.056H1066.51ZM907.439 162.344C953.906 163.182 968.24 88.1761 919.738 87.3272C872.177 86.4981 860.177 161.492 907.439 162.344ZM907.749 145.144C883.804 144.713 894.272 103.247 919.157 103.681C943.57 104.107 931.917 145.579 907.749 145.144ZM884.96 106.179C869.865 126.746 846.094 147.922 832.874 147.691C817.324 147.42 825.902 118.314 829.653 108.554C835.034 94.541 818.818 90.999 814.157 102.386C809.379 114.064 781.342 150.161 761.396 149.846C749.8 149.662 745.053 137.186 757.298 100.937L779.016 36.6392C780.572 31.6335 777.059 25.466 770.806 25.466C766.949 25.466 763.686 28.0041 762.594 31.5038L741.001 95.4322C725.572 141.112 731.105 166.617 757.174 167.031C788.875 167.536 823.666 121.132 828.432 104.473L814.439 102.386C807.191 121.258 795.826 164.273 829.473 164.862C854.865 165.305 879.081 139.53 896.026 116.351C897.07 114.927 897.685 113.173 897.685 111.273C897.685 106.521 896.652 102.668 891.901 102.668C889.052 102.668 886.528 104.05 884.963 106.182L884.96 106.179ZM793.7 56.8817L719.03 58.523C714.738 58.6047 711.286 62.1073 711.286 66.4164C711.286 70.7254 714.904 74.3944 719.334 74.3098L794.004 72.6685C798.297 72.5867 801.748 69.0842 801.748 64.7751C801.748 60.466 798.13 56.7971 793.7 56.8817ZM743.923 88.1451C723.92 142.471 695.352 155.802 684.236 155.607C676.822 155.477 674.453 151.698 675.586 139.713C676.644 128.548 662.803 123.813 656.306 132.95C648.934 143.317 638.655 153.154 625.124 152.917C601.669 152.508 611.393 111.557 646.861 112.175C659.836 112.401 669.016 118.444 672.916 126.354C674.182 128.918 676.822 130.68 679.873 130.68C684.157 130.68 687.631 127.206 687.631 122.922C687.631 121.687 687.343 120.517 686.822 119.482C680.4 106.521 666.071 96.9945 647.132 96.6645C591.421 95.6916 576.198 168.472 621.751 169.267C642.589 169.631 662.307 152.643 667.538 140.243C666.37 141.884 659.836 141.532 660.146 138.247C658.294 157.821 663.869 171.075 681.991 171.391C701.001 171.684 734.368 153.985 757.355 91.5235C759.109 86.7576 756.788 83.0633 751.204 83.0633C747.862 83.0633 745.014 85.1755 743.925 88.1394L743.923 88.1451ZM549.523 168.388C549.523 184.58 567.177 188.546 567.177 166.887C567.177 145.229 583.959 92.4823 588.497 78.2917L642.09 75.9651C656.105 75.356 653.677 59.9725 642.473 60.3701L593.793 62.096L599.794 44.1011C601.207 40.1417 602.264 36.9042 602.264 34.3831C602.264 30.0656 599.086 27.5444 595.203 27.5444C590.615 27.5444 586.731 28.9855 582.493 41.5799L575.431 63.1733L540.832 64.6143C534.831 64.9725 530.592 67.4936 530.592 72.8913C530.592 79.008 535.183 81.1682 541.537 80.81L570.135 79.3718C564.78 95.7508 549.52 147.824 549.52 168.385L549.523 168.388ZM322.659 129.504C333.556 95.6239 362.177 93.334 362.177 105.308C362.177 113.698 348.68 126.901 322.659 129.504ZM259.148 182.403C281.323 178.241 270.161 164.022 256.447 168.032C172.487 192.595 181.12 237.784 211.771 239.403C255.584 241.715 281.365 179.332 282.817 132.096C284.064 121.188 272.609 116.611 264.701 125.006C254.129 136.236 235.389 151.326 220.358 151.326C194.955 151.326 214.986 100.63 257.484 100.63C265.897 100.63 271.892 103.382 275.894 107.059C283.079 113.661 298.367 104.124 290.556 94.8907C284.693 87.9618 274.413 82.8631 258.889 82.8631C194.233 82.8631 165.815 169.375 215.823 169.375C243.339 169.375 268.596 143.932 274.498 135.599C273.319 136.614 265.643 133.354 265.973 130.466L265.251 136.786C264.924 172.66 242.628 225.102 214.893 222.197C200.135 220.652 211.413 191.363 259.151 182.401L259.148 182.403ZM9.39368 133.365L176.317 112.615C180.55 112.15 183.844 108.562 183.844 104.205C183.844 99.2026 179.411 95.2517 174.45 95.7959L7.52679 116.546C3.29385 117.011 0 120.599 0 124.956C0 129.958 4.43316 133.909 9.39368 133.365ZM153.824 178.162L164.43 15.3109C165.42 0.10504 149.54 -5.6733 139.315 6.79145L4.29498 171.43C3.01184 172.97 2.23914 174.953 2.23914 177.116C2.23914 182.023 6.21545 185.999 11.1224 185.999C13.8663 185.999 16.3198 184.755 17.9498 182.801L153.051 18.0605C154.151 16.7181 146.647 14.9584 146.7 14.1575L136.086 177.144C135.801 182.195 139.887 186.538 144.955 186.538C149.69 186.538 153.559 182.832 153.824 178.165V178.162ZM334.495 176.278C364.495 176.278 402.107 154.64 420.657 128.221C419.247 135.779 413.596 156.893 413.596 163.974C413.596 177.065 425.905 176.055 435.905 165.948L476.799 124.62L480.104 140.136C484.535 160.926 493.779 169.234 508.35 169.234C534.791 169.234 559.205 140.066 570.101 123.379L561.982 106.43C555.505 123.543 527.859 150.618 512.586 150.618C505.561 150.618 502.002 146.287 499.808 136.916L495.398 118.083C491.621 101.963 478.22 98.2776 462.809 113.275L436.681 138.701L440.564 116.109C443.392 99.651 427.301 98.1366 418.835 109.784C406.345 126.972 368.246 158.359 337.033 158.359C324.216 158.359 320.479 152.214 320.398 144.112C389.532 139.022 402.177 81.5066 356.472 81.5066C301.382 81.5066 277.312 176.275 334.49 176.275L334.495 176.278Z" fill="currentColor"/>
+              </svg>
             </span>
             <span className="sd-version">v0.3.2</span>
             <button ref={themeToggleRef} className="sd-theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)}>
@@ -2376,6 +2377,458 @@ interface ChatMessage {
   isTyping?: boolean;
   files?: { name: string; added: number; removed: number }[];
 }
+
+// ============================================================
+// LAYOUT MODE DEMO (tabbed: Add + Rearrange)
+// ============================================================
+
+// --- Palette icon SVGs (matching real layout mode icons) ---
+const _s = "currentColor";
+const _sw = "0.5";
+
+function DemoIcon({ type }: { type: string }) {
+  switch (type) {
+    case "hero":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="1" y="1" width="18" height="14" rx="1" stroke={_s} strokeWidth={_sw} /><rect x="5" y="5" width="10" height="1.5" rx=".5" fill={_s} opacity=".35" /><rect x="7" y="8" width="6" height="1" rx=".5" fill={_s} opacity=".15" /><rect x="7.5" y="10.5" width="5" height="2.5" rx="1" stroke={_s} strokeWidth={_sw} /></svg>);
+    case "card":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="2" y="1" width="16" height="14" rx="1.5" stroke={_s} strokeWidth={_sw} /><rect x="2" y="1" width="16" height="5.5" rx="1" fill={_s} opacity=".04" /><rect x="4" y="8.5" width="8" height="1" rx=".5" fill={_s} opacity=".25" /><rect x="4" y="11" width="11" height="1" rx=".5" fill={_s} opacity=".12" /></svg>);
+    case "navigation":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="1" y="4" width="18" height="8" rx="1" stroke={_s} strokeWidth={_sw} /><rect x="2.5" y="7" width="3" height="1.5" rx=".5" fill={_s} opacity=".4" /><rect x="7" y="7" width="2.5" height="1.5" rx=".5" fill={_s} opacity=".25" /><rect x="11" y="7" width="2.5" height="1.5" rx=".5" fill={_s} opacity=".25" /></svg>);
+    case "footer":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="1" y="7" width="18" height="8" rx="1" stroke={_s} strokeWidth={_sw} /><rect x="3" y="9.5" width="4" height="1" rx=".5" fill={_s} opacity=".25" /><rect x="9" y="9.5" width="4" height="1" rx=".5" fill={_s} opacity=".25" /><rect x="15" y="9.5" width="3" height="1" rx=".5" fill={_s} opacity=".2" /></svg>);
+    case "form":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="2" y="1" width="16" height="14" rx="1.5" stroke={_s} strokeWidth={_sw} /><rect x="4" y="3.5" width="12" height="2.5" rx=".75" stroke={_s} strokeWidth={_sw} /><rect x="4" y="7.5" width="12" height="2.5" rx=".75" stroke={_s} strokeWidth={_sw} /><rect x="10" y="11.5" width="6" height="2.5" rx=".75" stroke={_s} strokeWidth={_sw} /></svg>);
+    case "table":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="1" y="2" width="18" height="12" rx="1" stroke={_s} strokeWidth={_sw} /><line x1="1" y1="5.5" x2="19" y2="5.5" stroke={_s} strokeWidth=".3" opacity=".25" /><line x1="1" y1="9" x2="19" y2="9" stroke={_s} strokeWidth=".3" opacity=".25" /><line x1="7" y1="2" x2="7" y2="14" stroke={_s} strokeWidth=".3" opacity=".25" /><line x1="13" y1="2" x2="13" y2="14" stroke={_s} strokeWidth=".3" opacity=".25" /></svg>);
+    case "sidebar":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="1" y="1" width="7" height="14" rx="1" stroke={_s} strokeWidth={_sw} /><rect x="2.5" y="4" width="4" height="1" rx=".5" fill={_s} opacity=".3" /><rect x="2.5" y="6.5" width="3.5" height="1" rx=".5" fill={_s} opacity=".15" /><rect x="2.5" y="9" width="4" height="1" rx=".5" fill={_s} opacity=".15" /></svg>);
+    case "button":
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="3" y="5" width="14" height="6" rx="2" stroke={_s} strokeWidth={_sw} /><rect x="6" y="7.5" width="8" height="1" rx=".5" fill={_s} opacity=".3" /></svg>);
+    default:
+      return (<svg viewBox="0 0 20 16" width="20" height="16" fill="none"><rect x="2" y="2" width="16" height="12" rx="1" stroke={_s} strokeWidth={_sw} /></svg>);
+  }
+}
+
+// --- Mini skeleton renderers for placement boxes ---
+function MiniNavSkeleton() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", height: "100%", padding: "0 8px", gap: 4 }}>
+      <div style={{ width: 16, height: 8, borderRadius: 2, border: "1px dashed var(--agd-stroke)", background: "var(--agd-fill)" }} />
+      <div style={{ flex: 1, display: "flex", gap: 4, marginLeft: 6 }}>
+        <div style={{ width: 12, height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+        <div style={{ width: 14, height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+        <div style={{ width: 10, height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+      </div>
+      <div style={{ width: 18, height: 8, borderRadius: 3, border: "1px dashed var(--agd-stroke)", background: "var(--agd-fill)" }} />
+    </div>
+  );
+}
+
+function MiniHeroSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 4 }}>
+      <div style={{ width: "50%", height: 3, borderRadius: 1, background: "var(--agd-bar-strong)" }} />
+      <div style={{ width: "60%", height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+      <div style={{ width: "35%", height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+      <div style={{ width: 28, height: 8, borderRadius: 3, border: "1px dashed var(--agd-stroke)", marginTop: 3 }} />
+    </div>
+  );
+}
+
+function MiniCardSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ height: "40%", background: "var(--agd-fill)", borderBottom: "1px dashed var(--agd-stroke)" }} />
+      <div style={{ flex: 1, padding: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ width: "60%", height: 2, borderRadius: 1, background: "var(--agd-bar-strong)" }} />
+        <div style={{ width: "85%", height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+        <div style={{ width: "50%", height: 2, borderRadius: 1, background: "var(--agd-bar)" }} />
+      </div>
+    </div>
+  );
+}
+
+function MiniFormSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: 4, gap: 3 }}>
+      <div style={{ height: 8, borderRadius: 2, border: "1px dashed var(--agd-stroke)", background: "var(--agd-fill)" }} />
+      <div style={{ height: 8, borderRadius: 2, border: "1px dashed var(--agd-stroke)", background: "var(--agd-fill)" }} />
+      <div style={{ width: 24, height: 8, borderRadius: 3, border: "1px dashed var(--agd-stroke)", alignSelf: "flex-end", marginTop: "auto" }} />
+    </div>
+  );
+}
+
+function MiniSkeleton({ type }: { type: string }) {
+  switch (type) {
+    case "navigation": return <MiniNavSkeleton />;
+    case "hero": return <MiniHeroSkeleton />;
+    case "card": return <MiniCardSkeleton />;
+    case "form": return <MiniFormSkeleton />;
+    default: return <MiniHeroSkeleton />;
+  }
+}
+
+// --- Section colors (matching real layout mode) ---
+const DMD_SECTION_COLORS = [
+  { bg: "rgba(59, 130, 246, 0.08)", border: "rgba(59, 130, 246, 0.5)", pill: "#3b82f6" },
+  { bg: "rgba(139, 92, 246, 0.08)", border: "rgba(139, 92, 246, 0.5)", pill: "#8b5cf6" },
+  { bg: "rgba(236, 72, 153, 0.08)", border: "rgba(236, 72, 153, 0.5)", pill: "#ec4899" },
+  { bg: "rgba(34, 197, 94, 0.08)", border: "rgba(34, 197, 94, 0.5)", pill: "#22c55e" },
+];
+
+// --- Component registry (subset for demo) ---
+const DMD_COMPONENTS = [
+  { section: "Layout", items: [
+    { type: "navigation", label: "Navigation" },
+    { type: "hero", label: "Hero" },
+    { type: "sidebar", label: "Sidebar" },
+    { type: "footer", label: "Footer" },
+  ]},
+  { section: "Content", items: [
+    { type: "card", label: "Card" },
+    { type: "table", label: "Table" },
+  ]},
+  { section: "Controls", items: [
+    { type: "button", label: "Button" },
+    { type: "form", label: "Form" },
+  ]},
+];
+
+interface Placement {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  type: string;
+  badge?: "moved" | "resized";
+  dragging?: boolean;
+  fading?: boolean;
+}
+
+interface Ghost {
+  label: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  dropping?: boolean;
+}
+
+type CursorType = "pointer" | "grab" | "grabbing";
+
+
+export function DesignModeDemo() {
+  const [paletteVisible, setPaletteVisible] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [placements, setPlacements] = useState<Placement[]>([]);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  const [sizeLabel, setSizeLabel] = useState<{ x: number; y: number; w: number; h: number; fading?: boolean } | null>(null);
+  const [cursorPos, setCursorPos] = useState({ x: 160, y: 150 });
+  const [cursorType, setCursorType] = useState<CursorType>("pointer");
+  const [isClicking, setIsClicking] = useState(false);
+  const [cursorSpeed, setCursorSpeed] = useState<"normal" | "instant">("normal");
+  const [footerCount, setFooterCount] = useState(0);
+
+  // Refs for dynamic cursor positioning — measures zoomed palette item positions
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const getItemCenter = (type: string) => {
+    const body = bodyRef.current;
+    const item = itemRefs.current[type];
+    if (!body || !item) return { x: 420, y: 55 };
+    const bRect = body.getBoundingClientRect();
+    const iRect = item.getBoundingClientRect();
+    return { x: iRect.left - bRect.left + iRect.width / 2, y: iRect.top - bRect.top + iRect.height / 2 };
+  };
+
+  // Section y-offsets for rearrange animation (CSS transitions handle smoothness)
+  const [heroOffset, setHeroOffset] = useState(0);
+  const [cardsOffset, setCardsOffset] = useState(0);
+  const [footerOffset, setFooterOffset] = useState(0);
+  const [outlinesVisible, setOutlinesVisible] = useState(false);
+  const [heroOutlineDragging, setHeroOutlineDragging] = useState(false);
+  const [heroBadge, setHeroBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const click = async () => { setIsClicking(true); await delay(100); if (!cancelled) setIsClicking(false); };
+
+    const dragTo = async (sx: number, sy: number, ex: number, ey: number, steps: number, onStep?: (x: number, y: number) => void) => {
+      setCursorSpeed("instant");
+      for (let i = 0; i <= steps; i++) {
+        if (cancelled) return;
+        const t = i / steps;
+        const eased = 1 - Math.pow(1 - t, 3);
+        const x = sx + (ex - sx) * eased;
+        const y = sy + (ey - sy) * eased;
+        setCursorPos({ x, y });
+        onStep?.(x, y);
+        await delay(20);
+      }
+      setCursorSpeed("normal");
+    };
+
+    // Page section positions (within canvas)
+    // Nav: y=8, h=14 | Hero: y=28, h=50 | Cards: y=86, h=62 | Footer: y=156, h=22
+    const heroY = 28, heroH = 50;
+    const cardsY = 86, cardsH = 62;
+    const footerY = 156;
+
+    const run = async () => {
+      // Reset all state
+      setPaletteVisible(false); setOutlinesVisible(false);
+      setHoveredItem(null); setActiveItem(null);
+      setPlacements([]); setGhost(null); setSizeLabel(null);
+      setCursorType("pointer"); setCursorSpeed("normal");
+      setCursorPos({ x: 120, y: 120 });
+      setFooterCount(0);
+      setHeroOffset(0); setCardsOffset(0); setFooterOffset(0);
+      setHeroOutlineDragging(false); setHeroBadge(null);
+      await delay(800); if (cancelled) return;
+
+      // Activate layout mode: palette + outlines
+      setPaletteVisible(true); setOutlinesVisible(true);
+      await delay(600); if (cancelled) return;
+
+      // --- Phase 1: Rearrange — grab Hero, drag below Cards ---
+      const heroCX = 140, heroCY = heroY + heroH / 2;
+      setCursorPos({ x: heroCX, y: heroCY });
+      await delay(400); if (cancelled) return;
+      setCursorType("grab");
+      await delay(350); if (cancelled) return;
+
+      await click();
+      setCursorType("grabbing");
+      setHeroOutlineDragging(true);
+      await delay(100); if (cancelled) return;
+
+      // Animate hero down, cards up
+      // Hero goes from y=28 to y=28+cardsH+8=98 → offset +70
+      // Cards go from y=86 to y=28 → offset -58
+      const heroTargetOffset = 70;
+      const cardsTargetOffset = -58;
+      const heroCYEnd = heroCY + heroTargetOffset;
+
+      setCursorSpeed("instant");
+      const steps = 28;
+      for (let i = 0; i <= steps; i++) {
+        if (cancelled) return;
+        const t = i / steps;
+        const eased = 1 - Math.pow(1 - t, 3);
+        setCursorPos({ x: heroCX, y: heroCY + (heroCYEnd - heroCY) * eased });
+        setHeroOffset(heroTargetOffset * eased);
+        // Cards start moving after 25% of the drag
+        const ct = Math.max(0, (t - 0.25) / 0.5);
+        const cEased = ct >= 1 ? 1 : ct <= 0 ? 0 : 1 - Math.pow(1 - ct, 2);
+        setCardsOffset(cardsTargetOffset * cEased);
+        await delay(20);
+      }
+      if (cancelled) return;
+
+      setCursorSpeed("normal");
+      setCursorType("pointer");
+      setHeroOutlineDragging(false);
+      setHeroBadge("moved");
+      setFooterCount(1);
+      await delay(800); if (cancelled) return;
+
+      // --- Phase 2: Place Form from palette ---
+      const formPos = getItemCenter("form");
+      setCursorPos(formPos); await delay(400); if (cancelled) return;
+      setHoveredItem("form");
+      await delay(300); if (cancelled) return;
+
+      await click();
+      setActiveItem("form"); setHoveredItem(null);
+      setCursorType("grabbing");
+      await delay(100); if (cancelled) return;
+
+      // Ghost starts at palette item, drags to canvas
+      const formW = 160, formH = 50;
+      setGhost({ label: "Form", type: "form", x: formPos.x - formW / 2, y: formPos.y - formH / 2, width: formW, height: formH });
+      await delay(80); if (cancelled) return;
+
+      // Drop target: between moved hero (now at y≈98) and footer
+      const formDropX = 16, formDropY = footerY + footerOffset - formH - 6;
+      await dragTo(formPos.x, formPos.y, formDropX + formW / 2, formDropY + formH / 2, 30, (x, y) => {
+        setGhost(g => g ? { ...g, x: x - formW / 2, y: y - formH / 2 } : g);
+      });
+      if (cancelled) return;
+
+      setGhost(g => g ? { ...g, x: formDropX, y: formDropY, dropping: true } : g);
+      await delay(250); if (cancelled) return;
+      setGhost(null);
+      // Push footer down to make room
+      setFooterOffset(prev => prev + formH + 8);
+      setPlacements([{ id: "form", x: formDropX, y: formDropY, width: formW, height: formH, label: "Form", type: "form" }]);
+      setCursorType("pointer"); setActiveItem(null);
+      setFooterCount(2);
+      setSizeLabel({ x: formDropX, y: formDropY, w: formW, h: formH });
+      await delay(600); if (cancelled) return;
+      setSizeLabel(prev => prev ? { ...prev, fading: true } : null);
+      await delay(300); if (cancelled) return;
+      setSizeLabel(null);
+
+      // Hold
+      await delay(2500); if (cancelled) return;
+
+      // Fade
+      setPlacements(prev => prev.map(p => ({ ...p, fading: true })));
+      setOutlinesVisible(false);
+      await delay(400); if (cancelled) return;
+    };
+
+    run();
+    const iv = setInterval(run, 12000);
+    const vis = () => { if (document.visibilityState === 'visible') { cancelled = true; clearInterval(iv); setTimeout(() => { cancelled = false; run(); }, 100); } };
+    document.addEventListener('visibilitychange', vis);
+    return () => { cancelled = true; clearInterval(iv); document.removeEventListener('visibilitychange', vis); };
+  }, []);
+
+  return (
+    <div className="dmd-outer">
+      <div className="demo-window dmd-window">
+        <DmdBrowserBar />
+        <div className="dmd-body" ref={bodyRef}>
+          <div className="dmd-canvas">
+            {/* Faux page content */}
+            <div className="dmd-page">
+              <div className="dmd-page-nav">
+                <div className="dmd-page-hero-text" style={{ width: "30%", height: 6 }} />
+              </div>
+              <div className={`dmd-page-hero ${heroOutlineDragging ? "dragging" : ""}`} style={{ transform: `translateY(${heroOffset}px)` }}>
+                {outlinesVisible && <div className="dmd-outline blue"><span className="dmd-outline-label blue">Hero</span></div>}
+                {heroBadge && <span className="dmd-section-badge moved">{heroBadge}</span>}
+                <div className="dmd-page-hero-text" />
+                <div className="dmd-page-hero-text" style={{ width: "60%", height: 4, marginTop: 4, opacity: 0.5 }} />
+              </div>
+              <div className="dmd-page-cards" style={{ transform: `translateY(${cardsOffset}px)` }}>
+                {outlinesVisible && <div className="dmd-outline purple"><span className="dmd-outline-label purple">Cards</span></div>}
+                <div className="dmd-page-card"><div className="dmd-page-card-title" /><div className="dmd-page-card-body" /></div>
+                <div className="dmd-page-card"><div className="dmd-page-card-title" /><div className="dmd-page-card-body" /></div>
+                <div className="dmd-page-card"><div className="dmd-page-card-title" /><div className="dmd-page-card-body" /></div>
+              </div>
+              <div className="dmd-page-footer" style={{ transform: `translateY(${footerOffset}px)` }}>
+                {outlinesVisible && <div className="dmd-outline green"><span className="dmd-outline-label green">Footer</span></div>}
+              </div>
+            </div>
+
+            {/* New placements from palette */}
+            {placements.map(p => (
+              <div key={p.id} className={`dmd-placement ${p.fading ? "fading" : ""}`}
+                style={{ left: p.x, top: p.y, width: p.width, height: p.height, "--agd-stroke": "rgba(59,130,246,0.35)", "--agd-fill": "rgba(59,130,246,0.06)", "--agd-bar": "rgba(59,130,246,0.18)", "--agd-bar-strong": "rgba(59,130,246,0.28)" } as React.CSSProperties}>
+                <span className="dmd-placement-label">{p.label}</span>
+                <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 5 }}>
+                  <MiniSkeleton type={p.type} />
+                </div>
+                <div className="dmd-placement-handle nw" /><div className="dmd-placement-handle ne" />
+                <div className="dmd-placement-handle se" /><div className="dmd-placement-handle sw" />
+                {sizeLabel && sizeLabel.x === p.x && sizeLabel.y === p.y && (
+                  <span className={`dmd-size-label ${sizeLabel.fading ? "fading" : ""}`}>{sizeLabel.w} × {sizeLabel.h}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {ghost && (
+            <div className={`dmd-ghost ${ghost.dropping ? "dropping" : ""}`}
+              style={{ left: ghost.x, top: ghost.y, width: ghost.width, height: ghost.height }}>
+              <span className="dmd-ghost-label">{ghost.label}</span>
+            </div>
+          )}
+
+          <div className={`dmd-palette ${paletteVisible ? "visible" : ""}`}>
+            <div className="dmd-panel-toggle">
+              <div className="dmd-panel-check"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg></div>
+              <span className="dmd-panel-toggle-label">Wireframe New Page</span>
+            </div>
+            <div className="dmd-items">
+              {DMD_COMPONENTS.map(group => (
+                <div key={group.section}>
+                  <div className="dmd-section-title">{group.section}</div>
+                  {group.items.map(item => (
+                    <div key={item.type} ref={el => { itemRefs.current[item.type] = el; }} className={`dmd-item ${activeItem === item.type ? "active" : ""} ${hoveredItem === item.type ? "hovered" : ""}`}>
+                      <div className="dmd-item-icon"><DemoIcon type={item.type} /></div>
+                      <span className="dmd-item-label">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            {footerCount > 0 && (
+              <div className="dmd-palette-footer">
+                <span>{footerCount} {footerCount === 1 ? "Change" : "Changes"}</span>
+                <span className="dmd-clear-btn">Clear</span>
+              </div>
+            )}
+          </div>
+
+          <DmdCursor x={cursorPos.x} y={cursorPos.y} type={cursorType} clicking={isClicking} speed={cursorSpeed} />
+        </div>
+
+        {/* Faux toolbar — simple dots suggesting buttons */}
+        <div className="dmd-faux-toolbar">
+          <div className="dmd-faux-btn" /><div className="dmd-faux-btn" /><div className="dmd-faux-btn" />
+          <div className="dmd-faux-btn dim" /><div className="dmd-faux-btn dim" />
+          <div className="dmd-faux-btn" />
+          <div className="dmd-faux-divider" />
+          <div className="dmd-faux-btn" />
+        </div>
+      </div>
+      <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'rgba(0,0,0,0.5)', whiteSpace: 'pre-line', lineHeight: 1.3 }}>
+        {"Rearrange existing sections or drag new components from the palette.\nAll changes sync to agents in real time as structured annotations."}
+      </p>
+    </div>
+  );
+}
+
+// --- Cursor SVGs ---
+const CURSOR_POINTER_SVG = (
+  <svg height="24" width="24" viewBox="0 0 32 32"><g fill="none" fillRule="evenodd" transform="translate(10 7)"><path d="m6.148 18.473 1.863-1.003 1.615-.839-2.568-4.816h4.332l-11.379-11.408v16.015l3.316-3.221z" fill="#fff"/><path d="m6.431 17 1.765-.941-2.775-5.202h3.604l-8.025-8.043v11.188l2.53-2.442z" fill="#000"/></g></svg>
+);
+
+// macOS open hand cursor (from daviddarnes/mac-cursors via stageshow)
+const CURSOR_GRAB_SVG = (
+  <svg width="20" height="20" viewBox="0 0 32 32" fill="none"><g transform="translate(7 6)"><path d="m4.5557 8.5742c-.098-.375-.196-.847-.406-1.552-.167-.557-.342-.859-.47-1.233-.155-.455-.303-.721-.496-1.181-.139-.329-.364-1.048-.457-1.44-.119-.509.033-.924.244-1.206.253-.339.962-.49 1.357-.351.371.13.744.512.916.788.288.46.357.632.717 1.542.393.992.564 1.918.611 2.231l.085.452c-.001-.04-.043-1.122-.044-1.162-.035-1.029-.06-1.823-.038-2.939.002-.126.064-.587.084-.715.078-.5.305-.8.673-.979.412-.201.926-.215 1.401-.017.423.173.626.55.687 1.022.014.109.094.987.093 1.107-.013 1.025.006 1.641.015 2.174.004.231.003 1.625.017 1.469.061-.656.094-3.189.344-3.942.144-.433.405-.746.794-.929.431-.203 1.113-.07 1.404.243.285.305.446.692.482 1.153.032.405-.019.897-.02 1.245 0 .867-.021 1.324-.037 2.121-.001.038-.015.298.023.182.094-.28.188-.542.266-.745.049-.125.241-.614.359-.859.114-.234.211-.369.415-.688.2-.313.415-.448.668-.561.54-.235 1.109.112 1.301.591.086.215.009.713-.028 1.105-.061.647-.254 1.306-.352 1.648-.128.447-.274 1.235-.34 1.601-.072.394-.234 1.382-.359 1.82-.086.301-.371.978-.652 1.384 0 0-1.074 1.25-1.192 1.812-.117.563-.078.567-.101.965-.024.399.121.923.121.923s-.802.104-1.234.034c-.391-.062-.875-.841-1-1.078-.172-.328-.539-.265-.682-.023-.225.383-.709 1.07-1.051 1.113-.668.084-2.054.03-3.139.02 0 0 .185-1.011-.227-1.358-.305-.26-.83-.784-1.144-1.06l-.832-.921c-.284-.36-.629-1.093-1.243-1.985-.348-.504-1.027-1.085-1.284-1.579-.223-.425-.331-.954-.19-1.325.225-.594.675-.897 1.362-.832.519.05.848.206 1.238.537.225.19.573.534.75.748.163.195.203.276.377.509.23.307.302.459.214.121" fill="#fff" /><g stroke="#000" strokeLinecap="round" strokeWidth=".75"><path d="m4.5557 8.5742c-.098-.375-.196-.847-.406-1.552-.167-.557-.342-.859-.47-1.233-.155-.455-.303-.721-.496-1.181-.139-.329-.364-1.048-.457-1.44-.119-.509.033-.924.244-1.206.253-.339.962-.49 1.357-.351.371.13.744.512.916.788.288.46.357.632.717 1.542.393.992.564 1.918.611 2.231l.085.452c-.001-.04-.043-1.122-.044-1.162-.035-1.029-.06-1.823-.038-2.939.002-.126.064-.587.084-.715.078-.5.305-.8.673-.979.412-.201.926-.215 1.401-.017.423.173.626.55.687 1.022.014.109.094.987.093 1.107-.013 1.025.006 1.641.015 2.174.004.231.003 1.625.017 1.469.061-.656.094-3.189.344-3.942.144-.433.405-.746.794-.929.431-.203 1.113-.07 1.404.243.285.305.446.692.482 1.153.032.405-.019.897-.02 1.245 0 .867-.021 1.324-.037 2.121-.001.038-.015.298.023.182.094-.28.188-.542.266-.745.049-.125.241-.614.359-.859.114-.234.211-.369.415-.688.2-.313.415-.448.668-.561.54-.235 1.109.112 1.301.591.086.215.009.713-.028 1.105-.061.647-.254 1.306-.352 1.648-.128.447-.274 1.235-.34 1.601-.072.394-.234 1.382-.359 1.82-.086.301-.371.978-.652 1.384 0 0-1.074 1.25-1.192 1.812-.117.563-.078.567-.101.965-.024.399.121.923.121.923s-.802.104-1.234.034c-.391-.062-.875-.841-1-1.078-.172-.328-.539-.265-.682-.023-.225.383-.709 1.07-1.051 1.113-.668.084-2.054.03-3.139.02 0 0 .185-1.011-.227-1.358-.305-.26-.83-.784-1.144-1.06l-.832-.921c-.284-.36-.629-1.093-1.243-1.985-.348-.504-1.027-1.085-1.284-1.579-.223-.425-.331-.954-.19-1.325.225-.594.675-.897 1.362-.832.519.05.848.206 1.238.537.225.19.573.534.75.748.163.195.203.276.377.509.23.307.302.459.214.121" strokeLinejoin="round" /><path d="m11.566 12.734v-3.459" /><path d="m9.551 12.746-.016-3.473" /><path d="m7.555 9.305.021 3.426" /></g></g></svg>
+);
+
+// macOS closed/grabbing hand cursor (from daviddarnes/mac-cursors via stageshow)
+const CURSOR_GRABBING_SVG = (
+  <svg width="20" height="20" viewBox="0 0 32 32" fill="none"><g transform="translate(8 9)"><path d="m3.44281398 1.68449726c-.74326136.27630142-1.05584685.8131257-1.07636853 1.38003696-.01344897.37336893.06665513.72649286.23114214 1.18694303-.02596219-.07267623.09676488.29282004.12116236.37362273.05052942.16918921-.4865367-.05865774-.81377307.00741883-.36363321.07113868-.84783757.38332307-1.10006887.79754775-.29643467.48542737-.3109609 1.04368567-.08235979 2.04824266.12491868.54736183.36572145 1.00836814.71076689 1.44594879.15329951.1944118.5713628.64726015.60307236.6875974l.84854343.94062339c.15080214.1358526.25794954.2361946.57590427.5380259.3147558.2987762.4647038.4380078.60308951.555976.05846214.0492474.10784267.1797116.12740685.3736249.01609788.1595565.01049553.3375341-.0090192.5090254-.00674888.0593077-.01325791.1020883-.01698742.1224696-.04189161.228932.13269563.4403386.36541902.4424835.21585671.0019894.38528595.0046546.82216479.0123538.09483476.0016698.09483476.0016698.18993053.0033129 1.16876447.0200186 1.75308289.0147904 2.17807912-.0385723.45429894-.0572869.92650915-.6110188 1.32698393-1.2957591.34289141.6108338.81859723 1.2057867 1.2995685 1.2820532.1510118.0244148.3353555.0322555.548787.0275887.1606725-.0035131.3307029-.0140241.5021961-.0293376.1276907-.0114022.2293359-.0228648.29003-.0307451.2258836-.0293282.373669-.251611.3133108-.4712481-.0130351-.0474332-.0339838-.1345011-.0551094-.2441635-.0245945-.1276687-.0423383-.2523857-.0503381-.365988-.0050217-.0713101-.0059948-.1359317-.0027687-.1918983.0059157-.0980798.0077938-.1530073.0108033-.281125.0010795-.0448938.0010795-.0448938.0024606-.0845172.0054208-.1364475.0233824-.2649146.0815132-.544638.0250088-.1201275.1473169-.352189.3398902-.639435.0571394-.0852302.1195783-.1742239.1864664-.26609712.1272143-.17473362.2641361-.35131772.4011075-.52030772.082051-.10123129.145482-.17695689.1808122-.21807676.2967593-.42378347.612817-1.11823437.7291396-1.52536348.1117407-.39153936.202351-1.12501196.254373-1.81690429.029923-.39968605.0410555-.72381216.0410555-1.23011613.0000742-.09758414.0000742-.09758414.0002975-.17670236.0003569-.11115478.0003569-.11115478.000115-.20711835-.0008934-.15683883-.0055282-.31323355-.0207085-.69507578-.0313109-.81293139-.4771727-1.33911388-1.1344906-1.44058831-.559108-.08631314-1.0586051.08188477-1.2779293.31625977-.0755526.08073733.0036753-.2781823-.2159489-.62316278-.1644465-.25841586-.593184-.58905957-.9209287-.65355552-.335487-.06535532-.73539548-.05811715-1.1017193.00667481-.32093157.05742909-.68608434.33741751-.87176225.64688068-.12411885.20686477.03884667-.00592296-.09368743-.23401341-.18231052-.31422641-.60754287-.59486422-1.01411454-.67799709-.34643562-.07139428-.74182572-.04452925-1.09945614.0633873-.43336319.1291117-1.01795827.61460976-.94899189 1.15552627-.34375-.54091651-1.25026717-.691379-1.97906097-.42111797z" fill="#000" /><path d="m7.31951013 1.62138197c.20710357.04234751.44724204.20083012.51632974.31990811.08404358.1446387.15562749.36413806.21048667.6366124.02933373.14569467.12179446 1.2125285.29383112 1.32370243.41279229.04533731.41279229.04533731.52658055-.12364345.03545705-.07383858.03545705-.07383858.04226523-.1029106.01416796-.06009544.02463332-.12677987.0351322-.21754028l.00854738-.07915386.00047673-.00942804.00327525-.03167185c.01085148-.11424313.04184125-.4312127.05388392-.53034902.03788792-.31189663.08766449-.52757784.13944093-.6138719.0713024-.11883734.31942298-.28274442.43149612-.30279961.2804398-.04960082.58940103-.05519288.82623993-.00905543.1084394.02134018.3709471.22378689.432331.32024744.1291079.20279957.2524316.84889766.3225486 1.4970065-.0102194.04624251-.0102194.04624251.1640069.28984194.5843296-.06677889.5843296-.06677889.5703629-.17490247.0159511-.03856429.0284824-.08294031.045969-.15118961.0423876-.16089067.0697594-.25204451.111066-.35549917.0288558-.07227096.0592914-.13391873.0904889-.18278042.1209187-.19031132.4335712-.319392.7077174-.27707028.2943447.04543991.4816904.26653537.4994912.72869815.0148821.37434892.0193146.5239164.0201469.6700184l-.0004247.37954865c0 .48831141-.0104951.79388164-.0389535 1.17400348-.0480918.63962116-.1348512 1.34192123-.227649 1.66708484-.0946325.33121345-.3766371.95084197-.6003915 1.27298482-.0161892.01580846-.0841508.09694273-.1710333.20413492-.1445842.17838247-.2892181.36491271-.4247891.5511244-.0723398.09936149-.1402862.19620479-.2030964.2898938-.2440054.36396314-.400553.66098894-.4512157.90434304-.0659304.3172546-.0893838.4850003-.0966379.6675968-.0017072.0490782-.0017072.0490782-.002845.096677-.0028064.119476-.004437.1671639-.0097087.2545848-.0052654.091322-.0038193.187354.00332.2887353.0103318.1467182.1058713.3478531.1058713.3478531s-.2321503-.0119819-.3742084-.0088758c-.1718098.0037567-.3147843-.0023244-.4138162-.0183342-.1440353-.0228411-.53014068-.5057331-.7278511-.8821737-.30227042-.5764228-1.03604858-.5484427-1.33684295-.0394061-.26854779.4591613-.65918083.9172326-.7740684.9317199-.37404082.0469647-.94643778.0520862-2.07160079.0328144-.09480875-.0016381-.46003446-.0128683-.64600494-.0157445-.18597048-.0028763.05008807-.1790283.02786486-.399297-.03726222-.36933-.15125405-.6704984-.38877094-.8705429-.12241569-.1043631-.26774964-.2393104-.56509654-.5215613-.33323493-.3163366-.44236499-.4185353-.57290215-.533275l-.80130455-.89071892c-.03955779-.05174211-.45812831-.5051399-.5872217-.6688539-.28069963-.35597842-.47062947-.71959073-.56844755-1.14820437-.18921973-.83150113-.1793328-1.21146622-.00855589-1.49112273.13743587-.2257023.43815377-.4195862.60596039-.45241793.17165981-.03465512.55153059-.01648617.62179422.02229321.09902279.05401056.13357243.07300285.16379074.09097645.03572494.02124891.05965747.03799198.08182912.05708809.03426437.02951139.07235014.07170412.12420211.14044502.03611591.04821025.07806642.1053997.1423779.19304882.06054643.0816627.09183576.12069421.13369221.1590035.28038907.25662728.68391532.03238058.65052057-.32606956-.00567036-.06086415-.02203766-.12694598-.05458621-.23708502-.04356824-.15021272.00433013-.05284275-.26002629-.56642281-.08720664-.16942124-.13955864-.28835362-.17428227-.4046158l-.03412852-.10219113c-.03838756-.11059767-.09558223-.26854489-.12612861-.35199347l-.02009957-.05467087.002.008-.05974804-.17751191c-.09232236-.28807194-.13413567-.51358087-.12645475-.72681781.01040781-.28751553.16037753-.54506871.58790983-.70400047.40142488-.1488616 1.07786076.00117106 1.20581167.27856864.04319814.09369738.08927466.21199471.13900415.35457792l.03930997.11680217c.05539717.16759437.13470873.41493582.13860471.42816881.02724222.08344874.0471839.13860719.06943813.18441246.00217869.06301886.00217869.06301886.35429398.23177937.41699479-.29154152.41699479-.29154152.38019201-.37525838.00571063-.08773482.00758408-.17356287.00965287-.37317647.00242546-.23402898.00423842-.33154773.00994479-.45966208.01316411-.29554918.0437926-.51142116.09291227-.63864415.09160418-.23801371.25279279-.40993649.4432431-.46667832.24458613-.07380253.51465245-.09215236.73323569-.04710649zm1.21356228 4.27672201c-.20710459.00095412-.37422255.16961903-.37326843.37672361l.016 3.473c.00095412.20710459.16961903.37422251.37672361.37326841.20710459-.0009541.37422255-.16961901.37326843-.37672359l-.016-3.473c-.00095412-.20710459-.16961903-.37422255-.37672361-.37326843zm2.03332759.00229602c-.2071068 0-.375.16789322-.375.375v3.459c0 .20710678.1678932.375.375.375s.375-.16789322.375-.375v-3.459c0-.20710678-.1678932-.375-.375-.375zm-4.01399856.02930704c-.20710289.00126946-.37396385.17018863-.3726944.37729152l.021 3.426c.00126946.20710289.17018863.37396384.37729152.37269444.20710289-.0012695.37396385-.17018867.3726944-.37729156l-.021-3.426c-.00126946-.20710289-.17018863-.37396385-.37729152-.3726944z" fill="#fff" /></g></svg>
+);
+
+// --- Multi-state cursor using shared demo-cursor system ---
+function DmdCursor({ x, y, type, clicking, speed }: { x: number; y: number; type: CursorType; clicking?: boolean; speed?: "normal" | "instant" }) {
+  return (
+    <div className={`demo-cursor ${speed === "instant" ? "dragging" : ""}`} style={{ left: x, top: y }}>
+      <div className={`demo-cursor-pointer ${type !== "pointer" ? "hidden" : ""}`}>{CURSOR_POINTER_SVG}</div>
+      <div className={`demo-cursor-grab ${type !== "grab" ? "hidden" : ""}`}>{CURSOR_GRAB_SVG}</div>
+      <div className={`demo-cursor-grabbing ${type !== "grabbing" ? "hidden" : ""}`}>{CURSOR_GRABBING_SVG}</div>
+    </div>
+  );
+}
+
+// --- Browser bar for layout mode demos (shared .demo-browser-bar) ---
+function DmdBrowserBar() {
+  return (
+    <div className="demo-browser-bar">
+      <div className="demo-dot" />
+      <div className="demo-dot" />
+      <div className="demo-dot" />
+      <div className="demo-url">localhost:3000/dashboard</div>
+    </div>
+  );
+}
+
+
+
+// ============================================================
+// AGENT CHAT DEMO
+// ============================================================
 
 export function AgentChatDemo() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
