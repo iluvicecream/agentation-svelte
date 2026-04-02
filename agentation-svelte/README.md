@@ -28,6 +28,16 @@ npm install agentation-svelte -D
 
 The toolbar appears in the bottom-right. Toggle annotation mode, click elements, then copy structured output.
 
+## Svelte source detection
+
+In development builds, Agentation Svelte attempts to detect:
+
+- Source file + line (`sourceFile`)
+- Nearest component (`sourceComponent`)
+- Component hierarchy (`svelteComponents`)
+
+These fields are included in copied output when available.
+
 ## Props
 
 - `copyToClipboard?: boolean` (default `true`)

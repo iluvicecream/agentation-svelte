@@ -1,22 +1,141 @@
 <script lang="ts">
-  import { Copy, Eye, EyeOff, Minus, Moon, Pencil, Plus, Settings, Sun, Trash2 } from "@lucide/svelte";
   import { ModeWatcher, mode, setMode } from "mode-watcher";
   import { onMount, tick } from "svelte";
+  import Toolbar from "./components/Toolbar.svelte";
+  import MarkersLayer from "./components/MarkersLayer.svelte";
+  import HoverOverlay from "./components/HoverOverlay.svelte";
+  import AnnotationPopup from "./components/AnnotationPopup.svelte";
+  import {
+    closestCrossingShadow,
+    deepElementFromPoint,
+    getAccessibilityInfo,
+    getDetailedComputedStyles,
+    getElementClasses,
+    getForensicComputedStyles,
+    getFullElementPath,
+    getNearbyElements,
+    getNearbyText,
+    identifyElement
+  } from "./dom-utils";
   import { generateOutput } from "./output";
-  import { getElementClasses, getNearbyText, identifyElement } from "./dom-utils";
+  import {
+    getSvelteComponentHierarchy,
+    getSvelteComponentName,
+    getSvelteSourceLocation
+  } from "./svelte-detection";
+  import {
+    freeze as freezeAll,
+    originalSetInterval,
+    originalSetTimeout,
+    unfreeze as unfreezeAll
+  } from "./freeze-animations";
+  import type { PopupAnimState, PopupTimers } from "./popup";
+  import { clearPopupTimers, startOpenPopupAnimation } from "./popup";
   import { loadAnnotations, saveAnnotations } from "./storage";
-  import type { AgentationProps, Annotation, OutputMode } from "./types";
+  import type { AgentationProps, Annotation, DraftAnnotation, OutputMode } from "./types";
 
-  type DraftAnnotation = Omit<Annotation, "id" | "timestamp" | "comment">;
+  type PendingMultiSelectItem = {
+    element: HTMLElement;
+    rect: DOMRect;
+    name: string;
+    path: string;
+  };
+
+  type DragMatch = { element: HTMLElement; rect: DOMRect };
+
+  type ToolbarSettings = {
+    autoClearAfterCopy: boolean;
+    blockInteractions: boolean;
+    annotationColorId: "blue" | "green" | "yellow" | "orange" | "red" | "indigo" | "cyan";
+    webhookUrl: string;
+    webhooksEnabled: boolean;
+  };
+
+  const COLOR_OPTIONS: Array<{ id: ToolbarSettings["annotationColorId"]; label: string; color: string }> = [
+    { id: "indigo", label: "Indigo", color: "#6155f5" },
+    { id: "blue", label: "Blue", color: "#3c82f7" },
+    { id: "cyan", label: "Cyan", color: "#00c3d0" },
+    { id: "green", label: "Green", color: "#34c759" },
+    { id: "yellow", label: "Yellow", color: "#ffcc00" },
+    { id: "orange", label: "Orange", color: "#ff8d28" },
+    { id: "red", label: "Red", color: "#ff383c" }
+  ];
+
+  const DRAG_THRESHOLD = 8;
+  const ELEMENT_UPDATE_THROTTLE = 50;
+
+  const DRAG_TEXT_TAGS = new Set([
+    "P",
+    "SPAN",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "LI",
+    "TD",
+    "TH",
+    "LABEL",
+    "BLOCKQUOTE",
+    "FIGCAPTION",
+    "CAPTION",
+    "LEGEND",
+    "DT",
+    "DD",
+    "PRE",
+    "CODE",
+    "EM",
+    "STRONG",
+    "B",
+    "I",
+    "U",
+    "S",
+    "A",
+    "TIME",
+    "ADDRESS",
+    "CITE",
+    "Q",
+    "ABBR",
+    "DFN",
+    "MARK",
+    "SMALL",
+    "SUB",
+    "SUP"
+  ]);
+
+  const PREVIEW_MEANINGFUL_TAGS = new Set([
+    "BUTTON",
+    "A",
+    "INPUT",
+    "IMG",
+    "P",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "LI",
+    "LABEL",
+    "TD",
+    "TH",
+    "SECTION",
+    "ARTICLE",
+    "ASIDE",
+    "NAV"
+  ]);
 
   let {
     copyToClipboard = true,
     defaultOutputMode = "standard",
+    endpoint,
     onAnnotationAdd,
     onAnnotationDelete,
     onAnnotationUpdate,
     onAnnotationsClear,
-    onCopy
+    onCopy,
+    onSubmit
   }: AgentationProps = $props();
 
   let mounted = $state(false);
@@ -29,9 +148,8 @@
 
   let draft = $state<DraftAnnotation | null>(null);
   let draftComment = $state("");
-  let textareaEl = $state<HTMLTextAreaElement | null>(null);
   let editingAnnotationId = $state<string | null>(null);
-  let popupAnimState = $state<"initial" | "enter" | "entered" | "exit">("initial");
+  let popupAnimState = $state<PopupAnimState>("initial");
   let popupShake = $state(false);
   let popupX = $state(0);
   let popupY = $state(0);
@@ -45,31 +163,87 @@
   let hoverReactPath = $state("");
   let hoverTooltipX = $state(0);
   let hoverTooltipY = $state(0);
+  let pendingMultiSelectElements = $state<PendingMultiSelectItem[]>([]);
+  let modifiersHeld = $state({ cmdOrCtrl: false, shift: false });
+  let dragStart = $state<{ x: number; y: number } | null>(null);
+  let dragCurrent = $state<{ x: number; y: number } | null>(null);
+  let isDragSelecting = $state(false);
+  let justFinishedDragSelection = $state(false);
+  let dragSelectionPreview = $state<PendingMultiSelectItem[]>([]);
+  let lastDragElementUpdate = 0;
+  let isFrozen = $state(false);
+  let connectionStatus = $state<"disconnected" | "connecting" | "connected">("disconnected");
+  let sendState = $state<"idle" | "sending" | "sent" | "failed">("idle");
+  let settings = $state<ToolbarSettings>({
+    autoClearAfterCopy: false,
+    blockInteractions: true,
+    annotationColorId: "blue",
+    webhookUrl: "",
+    webhooksEnabled: true
+  });
 
   const pathname = $derived(typeof window !== "undefined" ? window.location.pathname : "/");
   const hasPopup = $derived(draft !== null);
+  const popupPlaceholder = $derived.by(() => {
+    if (editingAnnotationId) return "Edit your feedback...";
+    if (!draft) return "What should change?";
+    if (draft.element === "Area selection") return "What should change in this area?";
+    if (draft.isMultiSelect) return "Feedback for this group of elements...";
+    return "What should change?";
+  });
+  const pendingMultiSelectBounds = $derived.by(() => {
+    if (pendingMultiSelectElements.length === 0) return null;
+    const left = Math.min(...pendingMultiSelectElements.map((item) => item.rect.left));
+    const top = Math.min(...pendingMultiSelectElements.map((item) => item.rect.top));
+    const right = Math.max(...pendingMultiSelectElements.map((item) => item.rect.right));
+    const bottom = Math.max(...pendingMultiSelectElements.map((item) => item.rect.bottom));
+    return {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top
+    };
+  });
+  const dragSelectionRect = $derived.by(() => {
+    if (!dragStart || !dragCurrent) return null;
+    const left = Math.min(dragStart.x, dragCurrent.x);
+    const top = Math.min(dragStart.y, dragCurrent.y);
+    const right = Math.max(dragStart.x, dragCurrent.x);
+    const bottom = Math.max(dragStart.y, dragCurrent.y);
+    return {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top,
+      right,
+      bottom
+    };
+  });
+  const dragSelectionPreviewLabel = $derived.by(() => {
+    if (dragSelectionPreview.length === 0) return "";
+    const names = dragSelectionPreview.slice(0, 3).map((item) => item.name).join(", ");
+    const suffix = dragSelectionPreview.length > 3 ? ` +${dragSelectionPreview.length - 3} more` : "";
+    return `${names}${suffix}`;
+  });
   const OUTPUT_MODE_KEY = "agentation-svelte-output-mode";
-  let popupEnterTimer: ReturnType<typeof setTimeout> | null = null;
-  let popupEnteredTimer: ReturnType<typeof setTimeout> | null = null;
-  let popupExitTimer: ReturnType<typeof setTimeout> | null = null;
-  let popupShakeTimer: ReturnType<typeof setTimeout> | null = null;
+  const SETTINGS_KEY = "agentation-svelte-settings";
+  let popupTimers = $state<PopupTimers>({
+    popupEnterTimer: null,
+    popupEnteredTimer: null,
+    popupExitTimer: null,
+    popupShakeTimer: null
+  });
   let toolbarEntranceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function clearPopupTimers() {
-    if (popupEnterTimer) clearTimeout(popupEnterTimer);
-    if (popupEnteredTimer) clearTimeout(popupEnteredTimer);
-    if (popupExitTimer) clearTimeout(popupExitTimer);
-    if (popupShakeTimer) clearTimeout(popupShakeTimer);
-    popupEnterTimer = null;
-    popupEnteredTimer = null;
-    popupExitTimer = null;
-    popupShakeTimer = null;
+  function resetPopupTimers() {
+    popupTimers = clearPopupTimers(popupTimers);
   }
 
   function autoResizeTextarea() {
-    if (!textareaEl) return;
-    textareaEl.style.height = "auto";
-    textareaEl.style.height = `${textareaEl.scrollHeight}px`;
+    const textarea = document.querySelector("[data-agentation-root] .popupTextarea") as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
   }
 
   function isElementFixed(element: HTMLElement): boolean {
@@ -85,20 +259,19 @@
   }
 
   function openPopup(nextDraft: DraftAnnotation, clientX: number, clientY: number) {
-    clearPopupTimers();
+    resetPopupTimers();
+    clearHover();
     draft = nextDraft;
-    popupAnimState = "initial";
     popupShake = false;
-    popupX = Math.min(Math.max(clientX, 150), window.innerWidth - 150);
-    popupY = Math.min(clientY + 22, window.innerHeight - 230);
-
-    popupEnterTimer = setTimeout(() => {
-      popupAnimState = "enter";
-    }, 0);
-
-    popupEnteredTimer = setTimeout(() => {
-      popupAnimState = "entered";
-    }, 200);
+    const { timers, result } = startOpenPopupAnimation(nextDraft, clientX, clientY, (state) => {
+      popupAnimState = state;
+    });
+    popupTimers = {
+      ...popupTimers,
+      ...timers
+    };
+    popupX = result.popupX;
+    popupY = result.popupY;
 
     tick().then(() => {
       autoResizeTextarea();
@@ -111,25 +284,30 @@
     editingAnnotationId = null;
     popupAnimState = "initial";
     popupShake = false;
-    textareaEl = null;
   }
 
   function closePopup() {
     if (!draft) return;
-    clearPopupTimers();
+    resetPopupTimers();
     popupAnimState = "exit";
-    popupExitTimer = setTimeout(() => {
-      forceClosePopup();
-    }, 150);
+    popupTimers = {
+      ...popupTimers,
+      popupExitTimer: originalSetTimeout(() => {
+        forceClosePopup();
+      }, 150)
+    };
   }
 
   function shakePopup() {
     if (!draft) return;
-    if (popupShakeTimer) clearTimeout(popupShakeTimer);
+    if (popupTimers.popupShakeTimer) clearTimeout(popupTimers.popupShakeTimer);
     popupShake = true;
-    popupShakeTimer = setTimeout(() => {
-      popupShake = false;
-    }, 250);
+    popupTimers = {
+      ...popupTimers,
+      popupShakeTimer: originalSetTimeout(() => {
+        popupShake = false;
+      }, 250)
+    };
   }
 
   function clearHover() {
@@ -137,6 +315,185 @@
     hoverLabel = "";
     hoverElementName = "";
     hoverReactPath = "";
+  }
+
+  function setHoverFromTarget(target: HTMLElement, clientX: number, clientY: number) {
+    const rect = target.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      clearHover();
+      return;
+    }
+
+    const { name } = identifyElement(target);
+    hoverElementName = name;
+    hoverReactPath = target.tagName.toLowerCase();
+    if (target.id) {
+      hoverReactPath = `#${target.id}`;
+    }
+    hoverRect = {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    };
+    hoverLabel = name;
+    hoverTooltipX = Math.max(8, Math.min(clientX, window.innerWidth - 100));
+    hoverTooltipY = Math.max(8, rect.top - 32);
+  }
+
+  function resetDragSelectionState() {
+    dragStart = null;
+    dragCurrent = null;
+    isDragSelecting = false;
+    dragSelectionPreview = [];
+  }
+
+  function collectPreviewDragMatches(bounds: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }): DragMatch[] {
+    const candidates = new Set<HTMLElement>();
+    const points: Array<[number, number]> = [
+      [bounds.left, bounds.top],
+      [bounds.right, bounds.top],
+      [bounds.left, bounds.bottom],
+      [bounds.right, bounds.bottom],
+      [(bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2],
+      [(bounds.left + bounds.right) / 2, bounds.top],
+      [(bounds.left + bounds.right) / 2, bounds.bottom],
+      [bounds.left, (bounds.top + bounds.bottom) / 2],
+      [bounds.right, (bounds.top + bounds.bottom) / 2]
+    ];
+
+    for (const [x, y] of points) {
+      const elements = document.elementsFromPoint(x, y);
+      for (const el of elements) {
+        if (el instanceof HTMLElement) candidates.add(el);
+      }
+    }
+
+    const nearbyElements = document.querySelectorAll(
+      "button, a, input, img, p, h1, h2, h3, h4, h5, h6, li, label, td, th, div, span, section, article, aside, nav"
+    );
+    for (const el of nearbyElements) {
+      if (el instanceof HTMLElement) candidates.add(el);
+    }
+
+    const allMatching: DragMatch[] = [];
+    for (const node of candidates) {
+      if (!node.isConnected || node.closest("[data-agentation-root]")) continue;
+      if (
+        closestCrossingShadow(
+          node,
+          "[data-agentation-root], [data-annotation-marker], [data-annotation-popup]"
+        )
+      )
+        continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.width > window.innerWidth * 0.8 && rect.height > window.innerHeight * 0.5) continue;
+      if (rect.width < 10 || rect.height < 10) continue;
+
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const centerInside =
+        centerX >= bounds.left && centerX <= bounds.right && centerY >= bounds.top && centerY <= bounds.bottom;
+
+      const overlapX = Math.min(rect.right, bounds.right) - Math.max(rect.left, bounds.left);
+      const overlapY = Math.min(rect.bottom, bounds.bottom) - Math.max(rect.top, bounds.top);
+      const overlapArea = overlapX > 0 && overlapY > 0 ? overlapX * overlapY : 0;
+      const elementArea = rect.width * rect.height;
+      const overlapRatio = elementArea > 0 ? overlapArea / elementArea : 0;
+
+      if (!centerInside && overlapRatio <= 0.5) continue;
+
+      if (
+        rect.left < bounds.right &&
+        rect.right > bounds.left &&
+        rect.top < bounds.bottom &&
+        rect.bottom > bounds.top
+      ) {
+        const tagName = node.tagName;
+        let shouldInclude = PREVIEW_MEANINGFUL_TAGS.has(tagName);
+
+        if (!shouldInclude && (tagName === "DIV" || tagName === "SPAN")) {
+          const hasText = !!(node.textContent && node.textContent.trim().length > 0);
+          const isInteractive =
+            node.onclick !== null ||
+            node.getAttribute("role") === "button" ||
+            node.getAttribute("role") === "link" ||
+            node.classList.contains("clickable") ||
+            node.hasAttribute("data-clickable");
+
+          if ((hasText || isInteractive) && !node.querySelector("p, h1, h2, h3, h4, h5, h6, button, a")) {
+            shouldInclude = true;
+          }
+        }
+
+        if (shouldInclude) {
+          let dominated = false;
+          for (const existing of allMatching) {
+            if (
+              existing.rect.left <= rect.left &&
+              existing.rect.right >= rect.right &&
+              existing.rect.top <= rect.top &&
+              existing.rect.bottom >= rect.bottom
+            ) {
+              dominated = true;
+              break;
+            }
+          }
+          if (!dominated) allMatching.push({ element: node, rect });
+        }
+      }
+    }
+
+    return allMatching;
+  }
+
+  function toPendingItems(matches: DragMatch[]): PendingMultiSelectItem[] {
+    return matches.map(({ element, rect }) => {
+      const { name, path } = identifyElement(element);
+      return { element, rect, name, path };
+    });
+  }
+
+  function getFinalDragItems(bounds: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }): PendingMultiSelectItem[] {
+    const allMatching: DragMatch[] = [];
+    const selector = "button, a, input, img, p, h1, h2, h3, h4, h5, h6, li, label, td, th";
+
+    document.querySelectorAll(selector).forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      if (
+        closestCrossingShadow(el, "[data-agentation-root], [data-annotation-marker], [data-annotation-popup]")
+      )
+        return;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width > window.innerWidth * 0.8 && rect.height > window.innerHeight * 0.5) return;
+      if (rect.width < 10 || rect.height < 10) return;
+
+      if (
+        rect.left < bounds.right &&
+        rect.right > bounds.left &&
+        rect.top < bounds.bottom &&
+        rect.bottom > bounds.top
+      ) {
+        allMatching.push({ element: el, rect });
+      }
+    });
+
+    const finalMatches = allMatching.filter(
+      ({ element }) => !allMatching.some(({ element: other }) => other !== element && element.contains(other))
+    );
+
+    return toPendingItems(finalMatches);
   }
 
   function collapseToolbar() {
@@ -157,6 +514,11 @@
     const { name, path } = identifyElement(target);
     const selection = window.getSelection()?.toString().trim() || undefined;
     const fixed = isElementFixed(target);
+    const sourceFile = getSvelteSourceLocation(target);
+    const sourceComponent = getSvelteComponentName(target);
+    const svelteComponents = getSvelteComponentHierarchy(target);
+    const computedStylesObj = getDetailedComputedStyles(target);
+    const computedStyles = getForensicComputedStyles(target);
 
     openPopup(
       {
@@ -173,11 +535,115 @@
         },
         nearbyText: getNearbyText(target),
         cssClasses: getElementClasses(target),
-        isFixed: fixed
+        isFixed: fixed,
+        sourceFile,
+        sourceComponent,
+        svelteComponents,
+        nearbyElements: getNearbyElements(target),
+        fullPath: getFullElementPath(target),
+        accessibility: getAccessibilityInfo(target),
+        computedStyles,
+        computedStylesObj
       },
       event.clientX,
       event.clientY
     );
+    draftComment = "";
+    editingAnnotationId = null;
+  }
+
+  function createMultiSelectDraft(items: PendingMultiSelectItem[]) {
+    if (items.length === 0) return;
+
+    const freshRects = items.map((item) => item.element.getBoundingClientRect());
+    const firstItem = items[0];
+    const firstEl = firstItem.element;
+
+    if (items.length === 1) {
+      const rect = freshRects[0];
+      const isFixed = isElementFixed(firstEl);
+      openPopup(
+        {
+          x: (rect.left / window.innerWidth) * 100,
+          y: isFixed ? rect.top : rect.top + window.scrollY,
+          element: firstItem.name,
+          elementPath: firstItem.path,
+          boundingBox: {
+            x: rect.left,
+            y: rect.top + window.scrollY,
+            width: rect.width,
+            height: rect.height
+          },
+          nearbyText: getNearbyText(firstEl),
+          cssClasses: getElementClasses(firstEl),
+          isFixed,
+          sourceFile: getSvelteSourceLocation(firstEl),
+          sourceComponent: getSvelteComponentName(firstEl),
+          svelteComponents: getSvelteComponentHierarchy(firstEl),
+          nearbyElements: getNearbyElements(firstEl),
+          fullPath: getFullElementPath(firstEl),
+          accessibility: getAccessibilityInfo(firstEl),
+          computedStyles: getForensicComputedStyles(firstEl),
+          computedStylesObj: getDetailedComputedStyles(firstEl)
+        },
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      );
+      draftComment = "";
+      editingAnnotationId = null;
+      return;
+    }
+
+    const bounds = {
+      left: Math.min(...freshRects.map((r) => r.left)),
+      top: Math.min(...freshRects.map((r) => r.top)),
+      right: Math.max(...freshRects.map((r) => r.right)),
+      bottom: Math.max(...freshRects.map((r) => r.bottom))
+    };
+
+    const names = items.slice(0, 5).map((item) => item.name).join(", ");
+    const suffix = items.length > 5 ? ` +${items.length - 5} more` : "";
+    const lastItem = items[items.length - 1];
+    const lastRect = freshRects[freshRects.length - 1];
+    const lastCenterX = lastRect.left + lastRect.width / 2;
+    const lastCenterY = lastRect.top + lastRect.height / 2;
+    const lastIsFixed = isElementFixed(lastItem.element);
+
+    openPopup(
+      {
+        x: (lastCenterX / window.innerWidth) * 100,
+        y: lastIsFixed ? lastCenterY : lastCenterY + window.scrollY,
+        element: `${items.length} elements: ${names}${suffix}`,
+        elementPath: "multi-select",
+        boundingBox: {
+          x: bounds.left,
+          y: bounds.top + window.scrollY,
+          width: bounds.right - bounds.left,
+          height: bounds.bottom - bounds.top
+        },
+        elementBoundingBoxes: freshRects.map((rect) => ({
+          x: rect.left,
+          y: rect.top + window.scrollY,
+          width: rect.width,
+          height: rect.height
+        })),
+        nearbyText: getNearbyText(firstEl),
+        cssClasses: getElementClasses(firstEl),
+        isFixed: lastIsFixed,
+        isMultiSelect: true,
+        sourceFile: getSvelteSourceLocation(firstEl),
+        sourceComponent: getSvelteComponentName(firstEl),
+        svelteComponents: getSvelteComponentHierarchy(firstEl),
+        nearbyElements: getNearbyElements(firstEl),
+        fullPath: getFullElementPath(firstEl),
+        accessibility: getAccessibilityInfo(firstEl),
+        computedStyles: getForensicComputedStyles(firstEl),
+        computedStylesObj: getDetailedComputedStyles(firstEl)
+      },
+      lastCenterX,
+      lastCenterY
+    );
+
     draftComment = "";
     editingAnnotationId = null;
   }
@@ -193,7 +659,15 @@
         boundingBox: annotation.boundingBox,
         nearbyText: annotation.nearbyText,
         cssClasses: annotation.cssClasses,
-        isFixed: annotation.isFixed
+        isFixed: annotation.isFixed,
+        sourceFile: annotation.sourceFile,
+        sourceComponent: annotation.sourceComponent,
+        svelteComponents: annotation.svelteComponents,
+        nearbyElements: annotation.nearbyElements,
+        fullPath: annotation.fullPath,
+        accessibility: annotation.accessibility,
+        computedStyles: annotation.computedStyles,
+        computedStylesObj: annotation.computedStylesObj
       },
       event.clientX,
       event.clientY
@@ -267,6 +741,14 @@
     }
 
     onCopy?.(output);
+
+    if (settings.webhooksEnabled && settings.webhookUrl) {
+      await fireWebhook("copy", { output, annotations });
+    }
+
+    if (settings.autoClearAfterCopy) {
+      clearAll();
+    }
   }
 
   function renderMarkerY(annotation: Annotation): number {
@@ -278,23 +760,159 @@
     return draft.isFixed ? draft.y : draft.y - scrollY;
   }
 
+  function openToolbar() {
+    isToolbarExpanded = true;
+    showMarkers = true;
+    isActive = true;
+  }
+
+  function toggleMarkers() {
+    hideTooltipsUntilMouseLeave();
+    showMarkers = !showMarkers;
+  }
+
+  function toggleSettings() {
+    hideTooltipsUntilMouseLeave();
+    showSettings = !showSettings;
+  }
+
+  function clearPendingMultiSelect() {
+    pendingMultiSelectElements = [];
+    modifiersHeld = { cmdOrCtrl: false, shift: false };
+  }
+
+  function togglePendingMultiSelect(target: HTMLElement) {
+    const existingIndex = pendingMultiSelectElements.findIndex((item) => item.element === target);
+    if (existingIndex >= 0) {
+      pendingMultiSelectElements = pendingMultiSelectElements.filter((_, index) => index !== existingIndex);
+      return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    const { name, path } = identifyElement(target);
+    pendingMultiSelectElements = [...pendingMultiSelectElements, { element: target, rect, name, path }];
+  }
+
+  function updateSettings(patch: Partial<ToolbarSettings>) {
+    settings = { ...settings, ...patch };
+  }
+
+  function isValidUrl(url: string): boolean {
+    if (!url.trim()) return false;
+    try {
+      const parsed = new URL(url.trim());
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  async function fireWebhook(eventName: string, payload: Record<string, unknown>, force = false): Promise<boolean> {
+    const targetUrl = settings.webhookUrl;
+    if (!targetUrl || (!settings.webhooksEnabled && !force)) return false;
+    if (!isValidUrl(targetUrl)) return false;
+
+    try {
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: eventName,
+          timestamp: Date.now(),
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+          ...payload
+        })
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function checkConnection() {
+    if (!endpoint) {
+      connectionStatus = "disconnected";
+      return;
+    }
+    try {
+      const response = await fetch(`${endpoint}/health`);
+      connectionStatus = response.ok ? "connected" : "disconnected";
+    } catch {
+      connectionStatus = "disconnected";
+    }
+  }
+
+  async function sendToAgent() {
+    if (!endpoint || connectionStatus !== "connected") return;
+    const output = generateOutput(annotations, pathname, outputMode);
+    if (!output) return;
+
+    onSubmit?.(output, annotations);
+    sendState = "sending";
+    await new Promise((resolve) => originalSetTimeout(resolve, 150));
+
+    try {
+      const response = await fetch(`${endpoint}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output, annotations, pathname, timestamp: Date.now() })
+      });
+      const ok = response.ok;
+      sendState = ok ? "sent" : "failed";
+      if (ok && settings.autoClearAfterCopy) {
+        originalSetTimeout(() => {
+          clearAll();
+        }, 500);
+      }
+    } catch {
+      sendState = "failed";
+    }
+
+    originalSetTimeout(() => {
+      sendState = "idle";
+    }, 2500);
+  }
+
   onMount(() => {
     mounted = true;
     scrollY = window.scrollY;
     annotations = loadAnnotations(pathname);
 
-    toolbarEntranceTimer = setTimeout(() => {
+    toolbarEntranceTimer = originalSetTimeout(() => {
       showToolbarEntrance = false;
     }, 500);
 
     try {
-      if (defaultOutputMode === "compact" || defaultOutputMode === "standard" || defaultOutputMode === "detailed") {
+      if (
+        defaultOutputMode === "compact" ||
+        defaultOutputMode === "standard" ||
+        defaultOutputMode === "detailed" ||
+        defaultOutputMode === "forensic"
+      ) {
         outputMode = defaultOutputMode;
       }
 
       const savedMode = localStorage.getItem(OUTPUT_MODE_KEY);
-      if (savedMode === "compact" || savedMode === "standard" || savedMode === "detailed") {
+      if (
+        savedMode === "compact" ||
+        savedMode === "standard" ||
+        savedMode === "detailed" ||
+        savedMode === "forensic"
+      ) {
         outputMode = savedMode;
+      }
+
+      const savedSettings = localStorage.getItem(SETTINGS_KEY);
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings) as Partial<ToolbarSettings>;
+        settings = {
+          ...settings,
+          ...parsed,
+          annotationColorId:
+            parsed.annotationColorId && COLOR_OPTIONS.some((c) => c.id === parsed.annotationColorId)
+              ? parsed.annotationColorId
+              : settings.annotationColorId
+        };
       }
     } catch {
       // ignore localStorage issues
@@ -302,6 +920,14 @@
 
     const onScroll = () => {
       scrollY = window.scrollY;
+      if (pendingMultiSelectElements.length > 0) {
+        pendingMultiSelectElements = pendingMultiSelectElements
+          .filter((item) => item.element.isConnected)
+          .map((item) => ({
+            ...item,
+            rect: item.element.getBoundingClientRect()
+          }));
+      }
       clearHover();
     };
 
@@ -311,43 +937,53 @@
         return;
       }
 
-      const target = event.target as HTMLElement | null;
-      if (!target || target.closest("[data-agentation-root]")) {
+      const target = deepElementFromPoint(event.clientX, event.clientY);
+      if (!target || closestCrossingShadow(target, "[data-agentation-root]")) {
         clearHover();
         return;
       }
 
-      const rect = target.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) {
-        clearHover();
-        return;
-      }
+      setHoverFromTarget(target, event.clientX, event.clientY);
+    };
 
-      const { name } = identifyElement(target);
-      hoverElementName = name;
-      hoverReactPath = target.tagName.toLowerCase();
-      if (target.id) {
-        hoverReactPath = `#${target.id}`;
+    const onDocumentDragMouseMove = (event: MouseEvent) => {
+      if (!isActive || !dragStart || draft) return;
+      dragCurrent = { x: event.clientX, y: event.clientY };
+      const dx = event.clientX - dragStart.x;
+      const dy = event.clientY - dragStart.y;
+      const thresholdSq = DRAG_THRESHOLD * DRAG_THRESHOLD;
+      if (dx * dx + dy * dy >= thresholdSq) {
+        isDragSelecting = true;
+        clearHover();
+
+        const now = Date.now();
+        if (now - lastDragElementUpdate < ELEMENT_UPDATE_THROTTLE) {
+          return;
+        }
+        lastDragElementUpdate = now;
+
+        const bounds = {
+          left: Math.min(dragStart.x, event.clientX),
+          top: Math.min(dragStart.y, event.clientY),
+          right: Math.max(dragStart.x, event.clientX),
+          bottom: Math.max(dragStart.y, event.clientY)
+        };
+        dragSelectionPreview = toPendingItems(collectPreviewDragMatches(bounds));
       }
-      hoverRect = {
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height
-      };
-      hoverLabel = name;
-      hoverTooltipX = Math.min(event.clientX + 14, window.innerWidth - 260);
-      hoverTooltipY = Math.max(8, rect.top - 34);
     };
 
     const onDocumentClick = (event: MouseEvent) => {
       if (!isActive) return;
+      if (justFinishedDragSelection) {
+        justFinishedDragSelection = false;
+        return;
+      }
 
-      const target = event.target as HTMLElement | null;
+      const target = (event.composedPath()[0] || event.target) as HTMLElement | null;
       if (!target) return;
 
       if (draft) {
-        if (!target.closest("[data-agentation-root]")) {
+        if (!closestCrossingShadow(target, "[data-agentation-root]")) {
           event.preventDefault();
           event.stopPropagation();
           shakePopup();
@@ -355,11 +991,150 @@
         return;
       }
 
-      if (target.closest("[data-agentation-root]")) return;
+      if (closestCrossingShadow(target, "[data-agentation-root]")) return;
+
+      const isInteractive = closestCrossingShadow(
+        target,
+        "button, a, input, select, textarea, [role='button'], [onclick]"
+      );
+
+      if (settings.blockInteractions && isInteractive) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && !draft && !editingAnnotationId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const elementUnder = deepElementFromPoint(event.clientX, event.clientY);
+        if (!elementUnder) return;
+        if (closestCrossingShadow(elementUnder, "[data-agentation-root]")) return;
+        togglePendingMultiSelect(elementUnder);
+        setHoverFromTarget(elementUnder, event.clientX, event.clientY);
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
-      beginCreate(target, event);
+      const elementUnder = deepElementFromPoint(event.clientX, event.clientY);
+      if (!elementUnder) return;
+      if (closestCrossingShadow(elementUnder, "[data-agentation-root]")) return;
+      beginCreate(elementUnder, event);
+    };
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (!isActive) return;
+      const target = (event.composedPath()[0] || event.target) as HTMLElement | null;
+      if (target && closestCrossingShadow(target, "[data-agentation-root]")) return;
+      if (draft) return;
+      if (target && (DRAG_TEXT_TAGS.has(target.tagName) || target.isContentEditable)) return;
+      pendingMultiSelectElements = [];
+      dragStart = { x: event.clientX, y: event.clientY };
+      dragCurrent = { x: event.clientX, y: event.clientY };
+      isDragSelecting = false;
+      lastDragElementUpdate = 0;
+      event.preventDefault();
+    };
+
+    const onDocumentMouseUp = (event: MouseEvent) => {
+      if (!isActive || !dragStart || !dragCurrent || draft) {
+        resetDragSelectionState();
+        return;
+      }
+
+      if (!isDragSelecting || !dragSelectionRect) {
+        resetDragSelectionState();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const items = getFinalDragItems(dragSelectionRect);
+      if (items.length > 0) {
+        createMultiSelectDraft(items);
+      } else {
+        if (dragSelectionRect.width <= 20 || dragSelectionRect.height <= 20) {
+          resetDragSelectionState();
+          return;
+        }
+
+        const centerX = dragSelectionRect.left + dragSelectionRect.width / 2;
+        const centerY = dragSelectionRect.top + dragSelectionRect.height / 2;
+        openPopup(
+          {
+            x: (centerX / window.innerWidth) * 100,
+            y: centerY + window.scrollY,
+            element: "Area selection",
+            elementPath: `region at (${Math.round(dragSelectionRect.left)}, ${Math.round(dragSelectionRect.top)})`,
+            boundingBox: {
+              x: dragSelectionRect.left,
+              y: dragSelectionRect.top + window.scrollY,
+              width: dragSelectionRect.width,
+              height: dragSelectionRect.height
+            },
+            nearbyText: "",
+            cssClasses: "",
+            isFixed: false,
+            isMultiSelect: true
+          },
+          centerX,
+          centerY
+        );
+        draftComment = "";
+        editingAnnotationId = null;
+      }
+
+      justFinishedDragSelection = true;
+      originalSetTimeout(() => {
+        justFinishedDragSelection = false;
+      }, 0);
+      resetDragSelectionState();
+    };
+
+    const onDocumentSelectStart = (event: Event) => {
+      if (!isActive) return;
+      const target = (event.composedPath()[0] || event.target) as HTMLElement | null;
+      if (target && closestCrossingShadow(target, "[data-agentation-root]")) return;
+      event.preventDefault();
+    };
+
+    const onDocumentDragStart = (event: DragEvent) => {
+      if (!isActive) return;
+      const target = (event.composedPath()[0] || event.target) as HTMLElement | null;
+      if (target && closestCrossingShadow(target, "[data-agentation-root]")) return;
+      event.preventDefault();
+    };
+
+    const onModifierKeyDown = (event: KeyboardEvent) => {
+      const next = {
+        cmdOrCtrl: modifiersHeld.cmdOrCtrl || event.key === "Meta" || event.key === "Control",
+        shift: modifiersHeld.shift || event.key === "Shift"
+      };
+      modifiersHeld = next;
+    };
+
+    const onModifierKeyUp = (event: KeyboardEvent) => {
+      const wasHoldingBoth = modifiersHeld.cmdOrCtrl && modifiersHeld.shift;
+      const next = {
+        cmdOrCtrl:
+          event.key === "Meta" || event.key === "Control"
+            ? false
+            : modifiersHeld.cmdOrCtrl,
+        shift: event.key === "Shift" ? false : modifiersHeld.shift
+      };
+      modifiersHeld = next;
+      const nowHoldingBoth = next.cmdOrCtrl && next.shift;
+
+      if (wasHoldingBoth && !nowHoldingBoth && pendingMultiSelectElements.length > 0) {
+        const items = pendingMultiSelectElements;
+        pendingMultiSelectElements = [];
+        createMultiSelectDraft(items);
+      }
+    };
+
+    const onWindowBlur = () => {
+      clearPendingMultiSelect();
     };
 
     const onEscape = (event: KeyboardEvent) => {
@@ -380,16 +1155,32 @@
 
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("mousemove", onDocumentMouseMove, { capture: true, passive: true });
+    document.addEventListener("mousedown", onDocumentMouseDown, true);
+    document.addEventListener("mousemove", onDocumentDragMouseMove, true);
+    document.addEventListener("mouseup", onDocumentMouseUp, true);
     document.addEventListener("click", onDocumentClick, true);
+    document.addEventListener("selectstart", onDocumentSelectStart, true);
+    document.addEventListener("dragstart", onDocumentDragStart, true);
     window.addEventListener("keydown", onEscape);
+    document.addEventListener("keydown", onModifierKeyDown);
+    document.addEventListener("keyup", onModifierKeyUp);
+    window.addEventListener("blur", onWindowBlur);
 
     return () => {
-      clearPopupTimers();
+      resetPopupTimers();
       if (toolbarEntranceTimer) clearTimeout(toolbarEntranceTimer);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousemove", onDocumentMouseMove, true);
+      document.removeEventListener("mousemove", onDocumentDragMouseMove, true);
+      document.removeEventListener("mousedown", onDocumentMouseDown, true);
+      document.removeEventListener("mouseup", onDocumentMouseUp, true);
       document.removeEventListener("click", onDocumentClick, true);
+      document.removeEventListener("selectstart", onDocumentSelectStart, true);
+      document.removeEventListener("dragstart", onDocumentDragStart, true);
       window.removeEventListener("keydown", onEscape);
+      document.removeEventListener("keydown", onModifierKeyDown);
+      document.removeEventListener("keyup", onModifierKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
     };
   });
 
@@ -408,6 +1199,38 @@
   });
 
   $effect(() => {
+    if (!isActive) {
+      pendingMultiSelectElements = [];
+      modifiersHeld = { cmdOrCtrl: false, shift: false };
+      if (isFrozen) {
+        unfreezeAll();
+        isFrozen = false;
+      }
+    }
+  });
+
+  onMount(() => {
+    return () => {
+      unfreezeAll();
+    };
+  });
+
+  $effect(() => {
+    if (!mounted) return;
+    if (!endpoint) {
+      connectionStatus = "disconnected";
+      return;
+    }
+
+    connectionStatus = "connecting";
+    checkConnection();
+    const interval = originalSetInterval(checkConnection, 10000);
+    return () => {
+      clearInterval(interval);
+    };
+  });
+
+  $effect(() => {
     if (!mounted) return;
     saveAnnotations(pathname, annotations);
   });
@@ -422,6 +1245,24 @@
   });
 
   $effect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // ignore localStorage issues
+    }
+  });
+
+  $effect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.setAttribute("data-agentation-accent", settings.annotationColorId);
+    const selected = COLOR_OPTIONS.find((color) => color.id === settings.annotationColorId);
+    const fallback = selected?.color || "#3c82f7";
+    document.documentElement.style.setProperty("--agentation-color-accent", fallback);
+    document.documentElement.style.setProperty(`--agentation-color-${settings.annotationColorId}`, fallback);
+  });
+
+  $effect(() => {
     const current = mode.current;
     if (current === "dark" || current === "light") {
       resolvedMode = current;
@@ -429,398 +1270,138 @@
   });
 </script>
 
-<div
-  data-agentation-root
-  class="agentation-root"
-  data-active={isActive}
-  data-agentation-theme={resolvedMode}
->
+  <div
+    data-agentation-root
+    class="agentation-root"
+    data-active={isActive}
+    data-agentation-theme={resolvedMode}
+    data-agentation-accent={settings.annotationColorId}
+  >
   <ModeWatcher defaultMode="system" darkClassNames={["dark"]} lightClassNames={["light"]} />
-  <div class="toolbarDock">
-    <div class={`toolbarContainer ${isToolbarExpanded ? "expanded" : "collapsed"} ${showToolbarEntrance ? "entrance" : ""}`}>
-      <button
-        class={`toggleBubble ${isToolbarExpanded ? "hidden" : "visible"}`}
-        type="button"
-        aria-label="Open toolbar"
-        onclick={() => {
-          isToolbarExpanded = true;
-          showMarkers = true;
-          isActive = true;
-        }}
-      >
-        <Pencil size={18} strokeWidth={2.2} class="icon" aria-hidden="true" />
-        {#if annotations.length > 0}
-          <span class="bubbleBadge">{annotations.length}</span>
-        {/if}
-      </button>
 
+  <Toolbar
+    {isToolbarExpanded}
+    {showToolbarEntrance}
+    annotationsCount={annotations.length}
+    {showMarkers}
+    {showSettings}
+    {tooltipsHiddenUntilMouseLeave}
+    {resolvedMode}
+    {outputMode}
+    {isFrozen}
+    {connectionStatus}
+    {sendState}
+    showSendButton={!!endpoint}
+    {settings}
+    endpoint={endpoint}
+    onOpenToolbar={openToolbar}
+    onMouseLeave={() => {
+      tooltipsHiddenUntilMouseLeave = false;
+    }}
+    onToggleMarkers={toggleMarkers}
+    onCopy={copyAnnotations}
+    onSend={sendToAgent}
+    onClear={clearAll}
+    onToggleSettings={toggleSettings}
+    onCollapse={collapseToolbar}
+    onToggleFreeze={() => {
+      if (isFrozen) {
+        unfreezeAll();
+        isFrozen = false;
+      } else {
+        freezeAll();
+        isFrozen = true;
+      }
+      tooltipsHiddenUntilMouseLeave = true;
+    }}
+    onToggleTheme={toggleThemeMode}
+    onUpdateSettings={updateSettings}
+    onSetOutputMode={(modeValue) => {
+      outputMode = modeValue;
+    }}
+  />
+
+  <MarkersLayer
+    {annotations}
+    {showMarkers}
+    {hasPopup}
+    {draft}
+    {editingAnnotationId}
+    {renderMarkerY}
+    {renderDraftMarkerY}
+    onBeginEdit={beginEdit}
+  />
+
+  <HoverOverlay
+    isActive={isActive && !hasPopup}
+    isMultiSelectMode={modifiersHeld.cmdOrCtrl && modifiersHeld.shift}
+    {hoverRect}
+    {hoverTooltipX}
+    {hoverTooltipY}
+    {hoverReactPath}
+    {hoverElementName}
+    {hoverLabel}
+  />
+
+  {#if pendingMultiSelectElements.length > 0}
+    {#if pendingMultiSelectBounds}
       <div
-        class={`controlsContent ${isToolbarExpanded ? "visible" : "hidden"} ${showSettings || tooltipsHiddenUntilMouseLeave ? "tooltipsHidden" : ""}`}
-        role="presentation"
-        onmouseleave={() => {
-          tooltipsHiddenUntilMouseLeave = false;
-        }}
-      >
-        <div class="buttonWrapper">
-          <button
-            class={`controlButton ${showMarkers ? "active" : ""}`}
-            type="button"
-            aria-label={showMarkers ? "Hide markers" : "Show markers"}
-            disabled={annotations.length === 0}
-            onclick={() => {
-              hideTooltipsUntilMouseLeave();
-              showMarkers = !showMarkers;
-            }}
-          >
-            {#if showMarkers}
-              <Eye size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-            {:else}
-              <EyeOff size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-            {/if}
-          </button>
-          <span class="buttonTooltip">{showMarkers ? "Hide Markers" : "Show Markers"}</span>
-        </div>
-
-        <div class="buttonWrapper">
-          <button
-            class="controlButton"
-            type="button"
-            aria-label="Copy output"
-            disabled={annotations.length === 0}
-            onclick={copyAnnotations}
-          >
-            <Copy size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-          </button>
-          <span class="buttonTooltip">Copy</span>
-        </div>
-
-        <div class="buttonWrapper">
-          <button
-            class="controlButton"
-            type="button"
-            aria-label="Clear annotations"
-            data-danger="true"
-            disabled={annotations.length === 0}
-            onclick={clearAll}
-          >
-            <Trash2 size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-          </button>
-          <span class="buttonTooltip">Clear</span>
-        </div>
-
-        <div class="buttonWrapper">
-          <button
-            class={`controlButton ${showSettings ? "active" : ""}`}
-            type="button"
-            aria-label="Settings"
-            onclick={() => {
-              hideTooltipsUntilMouseLeave();
-              showSettings = !showSettings;
-            }}
-          >
-            <Settings size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-          </button>
-          <span class="buttonTooltip">Settings</span>
-        </div>
-
-        <div class="buttonWrapper buttonWrapperAlignRight collapseButtonWrapper">
-          <button
-            class="controlButton collapseButton"
-            type="button"
-            aria-label="Collapse toolbar"
-            onclick={collapseToolbar}
-          >
-            <Minus size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-          </button>
-          <span class="buttonTooltip">Collapse</span>
-        </div>
-      </div>
-    </div>
-
-    <div class={`settingsPanel ${showSettings && isToolbarExpanded ? "enter" : "exit"}`}>
-      <div class="settingsPanelContainer">
-        <div class="settingsPage">
-          <div class="settingsHeader">
-            <span class="settingsBrand">agentation<span class="settingsBrandSlash">/</span></span>
-            <span class="settingsVersion">svelte</span>
-          </div>
-
-          <div class="settingsSection settingsSectionExtraPadding">
-            <div class="settingsRow settingsRowMarginTop">
-              <span class="settingsLabel">Theme</span>
-              <button
-                type="button"
-                class="cycleButton"
-                onclick={toggleThemeMode}
-              >
-                {#if resolvedMode === "dark"}
-                  <Moon size={14} strokeWidth={2.2} class="cycleIcon" aria-hidden="true" />
-                {:else}
-                  <Sun size={14} strokeWidth={2.2} class="cycleIcon" aria-hidden="true" />
-                {/if}
-                <span class="cycleButtonText">{resolvedMode === "dark" ? "Dark" : "Light"}</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="settingsSection settingsSectionExtraPadding">
-            <div class="settingsRow">
-              <span class="settingsLabel settingsLabelMarker">Output detail</span>
-            </div>
-
-            <div class="settingsOptions">
-              <button
-                type="button"
-                class={`settingsOption ${outputMode === "compact" ? "selected" : ""}`}
-                onclick={() => {
-                  outputMode = "compact";
-                }}
-              >
-                Compact
-              </button>
-              <button
-                type="button"
-                class={`settingsOption ${outputMode === "standard" ? "selected" : ""}`}
-                onclick={() => {
-                  outputMode = "standard";
-                }}
-              >
-                Standard
-              </button>
-              <button
-                type="button"
-                class={`settingsOption ${outputMode === "detailed" ? "selected" : ""}`}
-                onclick={() => {
-                  outputMode = "detailed";
-                }}
-              >
-                Detailed
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {#if showMarkers && annotations.length > 0}
-    {#each annotations as annotation, index (annotation.id)}
-      <button
-        class={`marker ${hasPopup ? "editingAny" : ""}`}
-        type="button"
-        style={`left: ${annotation.x}%; top: ${renderMarkerY(annotation)}px;`}
-        onclick={(event) => beginEdit(annotation, event)}
-        aria-label={`Edit annotation ${index + 1}`}
-      >
-        <span class="markerLabel">{index + 1}</span>
-        <span class="markerEditIcon" aria-hidden="true">
-          <Pencil size={12} strokeWidth={2.2} class="markerEditIconSvg" />
-        </span>
-        <div class="markerTooltip">
-          <span class="markerQuote">
-            {annotation.element}
-            {#if annotation.selectedText}
-              {` "${annotation.selectedText.slice(0, 30)}${annotation.selectedText.length > 30 ? "..." : ""}"`}
-            {/if}
-          </span>
-          <span class="markerNote">{annotation.comment}</span>
-        </div>
-      </button>
+        class="multiSelectCombinedOutline"
+        style={`left: ${pendingMultiSelectBounds.left}px; top: ${pendingMultiSelectBounds.top}px; width: ${pendingMultiSelectBounds.width}px; height: ${pendingMultiSelectBounds.height}px;`}
+      ></div>
+    {/if}
+    {#each pendingMultiSelectElements as item (item.element)}
+      <div
+        class={`multiSelectHighlight ${pendingMultiSelectElements.length > 1 ? "green" : "blue"}`}
+        style={`left: ${item.rect.left}px; top: ${item.rect.top}px; width: ${item.rect.width}px; height: ${item.rect.height}px;`}
+      ></div>
     {/each}
   {/if}
 
-  {#if showMarkers && draft && !editingAnnotationId}
-    <div class="marker pending" style={`left: ${draft.x}%; top: ${renderDraftMarkerY()}px;`}>
-      <Plus size={12} strokeWidth={2.5} class="icon" aria-hidden="true" />
-    </div>
-  {/if}
-
-  {#if isActive}
-    {#if hoverRect}
+  {#if isDragSelecting && dragSelectionRect}
+    {#each dragSelectionPreview as item (item.element)}
       <div
-        class="hover-highlight"
-        style={`left: ${hoverRect.left}px; top: ${hoverRect.top}px; width: ${hoverRect.width}px; height: ${hoverRect.height}px;`}
+        class="dragAffectedElement"
+        style={`left: ${item.rect.left}px; top: ${item.rect.top}px; width: ${item.rect.width}px; height: ${item.rect.height}px;`}
       ></div>
-      <div class="hover-tooltip" style={`left: ${hoverTooltipX}px; top: ${hoverTooltipY}px;`}>
-        <div class="hoverReactPath">{hoverReactPath}</div>
-        <div class="hoverElementName">{hoverElementName || hoverLabel}</div>
+    {/each}
+    <div
+      class="dragSelectionOutline"
+      style={`left: ${dragSelectionRect.left}px; top: ${dragSelectionRect.top}px; width: ${dragSelectionRect.width}px; height: ${dragSelectionRect.height}px;`}
+    ></div>
+    {#if dragSelectionPreview.length > 0}
+      <div
+        class="dragSelectionLabel"
+        style={`left: ${dragSelectionRect.left + dragSelectionRect.width / 2}px; top: ${Math.max(8, dragSelectionRect.top - 34)}px;`}
+      >
+        {dragSelectionPreview.length} affected: {dragSelectionPreviewLabel}
       </div>
     {/if}
-
   {/if}
 
-  {#if hasPopup && draft}
-    <div
-      class={`popup ${popupAnimState === "enter" ? "enter" : ""} ${popupAnimState === "entered" ? "entered" : ""} ${popupAnimState === "exit" ? "exit" : ""} ${popupShake ? "shake" : ""}`}
-      style={`left: ${popupX}px; top: ${popupY}px;`}
-    >
-      <div class="popupHeader">
-        <span class="popupElement">{draft.element}</span>
-      </div>
-
-      {#if draft.selectedText}
-        <div class="popupQuote">&ldquo;{draft.selectedText.slice(0, 80)}{draft.selectedText.length > 80 ? "..." : ""}&rdquo;</div>
-      {/if}
-
-      <textarea
-        class="popupTextarea"
-        bind:this={textareaEl}
-        rows="3"
-        bind:value={draftComment}
-        placeholder="What should change?"
-        oninput={autoResizeTextarea}
-        onkeydown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            saveDraft();
-          }
-        }}
-      ></textarea>
-
-      <div class="popupActions">
-        {#if editingAnnotationId}
-          <button
-            class="deleteButton"
-            type="button"
-            aria-label="Delete annotation"
-            onclick={() => {
-              const current = annotations.find((item) => item.id === editingAnnotationId);
-              if (current) removeAnnotation(current);
-            }}
-          >
-            <Trash2 size={17} strokeWidth={2.2} class="icon" aria-hidden="true" />
-          </button>
-        {/if}
-
-        <button class="cancelButton" type="button" onclick={closePopup}>Cancel</button>
-        <button class="submitButton" type="button" disabled={!draftComment.trim()} onclick={saveDraft}>
-          {editingAnnotationId ? "Update" : "Add"}
-        </button>
-      </div>
-    </div>
-  {/if}
+  <AnnotationPopup
+    {hasPopup}
+    {draft}
+    {popupAnimState}
+    {popupShake}
+    {popupX}
+    {popupY}
+    {draftComment}
+    placeholder={popupPlaceholder}
+    accentColor={draft?.isMultiSelect ? "var(--agentation-color-green, #34c759)" : "var(--agentation-color-blue, #3c82f7)"}
+    {editingAnnotationId}
+    {annotations}
+    onDraftCommentChange={(value) => {
+      draftComment = value;
+    }}
+    onAutoResize={autoResizeTextarea}
+    onSave={saveDraft}
+    onClose={closePopup}
+    onRemove={removeAnnotation}
+  />
 </div>
 
 <style>
-  @keyframes badgeEnter {
-    from {
-      opacity: 0;
-      transform: scale(0);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes toolbarEnter {
-    from {
-      opacity: 0;
-      transform: scale(0.5) rotate(90deg);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1) rotate(0deg);
-    }
-  }
-
-  @keyframes hoverHighlightIn {
-    from {
-      opacity: 0;
-      transform: scale(0.98);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes hoverTooltipIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95) translateY(4px);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  @keyframes markerIn {
-    0% {
-      opacity: 0;
-      transform: translate(-50%, -50%) scale(0.3);
-    }
-
-    100% {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-  }
-
-  @keyframes tooltipIn {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) translateY(2px) scale(0.891);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0) scale(0.909);
-    }
-  }
-
-  @keyframes popupEnter {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) scale(0.95) translateY(4px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateX(-50%) scale(1) translateY(0);
-    }
-  }
-
-  @keyframes popupExit {
-    from {
-      opacity: 1;
-      transform: translateX(-50%) scale(1) translateY(0);
-    }
-
-    to {
-      opacity: 0;
-      transform: translateX(-50%) scale(0.95) translateY(4px);
-    }
-  }
-
-  @keyframes shake {
-    0%,
-    100% {
-      transform: translateX(-50%) scale(1) translateY(0) translateX(0);
-    }
-
-    20% {
-      transform: translateX(-50%) scale(1) translateY(0) translateX(-3px);
-    }
-
-    40% {
-      transform: translateX(-50%) scale(1) translateY(0) translateX(3px);
-    }
-
-    60% {
-      transform: translateX(-50%) scale(1) translateY(0) translateX(-2px);
-    }
-
-    80% {
-      transform: translateX(-50%) scale(1) translateY(0) translateX(2px);
-    }
-  }
-
   .agentation-root {
     position: fixed;
     right: 20px;
@@ -830,1004 +1411,111 @@
     pointer-events: none;
   }
 
-  .toolbarDock {
-    position: relative;
-    pointer-events: auto;
-  }
-
-  .toolbarContainer {
-    position: relative;
-    user-select: none;
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #1a1a1a;
-    color: #fff;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.2),
-      0 4px 16px rgba(0, 0, 0, 0.1);
-    transition:
-      width 0.4s cubic-bezier(0.19, 1, 0.22, 1),
-      transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-    overflow: visible;
-  }
-
-  .toolbarContainer.entrance {
-    animation: toolbarEnter 0.5s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
-  }
-
-  .toolbarContainer.collapsed {
-    width: 44px;
-    height: 44px;
-    border-radius: 22px;
-  }
-
-  .toolbarContainer.expanded {
-    width: 297px;
-    height: 44px;
-    border-radius: 1.5rem;
-    padding: 0.375rem;
-  }
-
-  .toggleBubble {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.95);
-    position: relative;
-    transition: opacity 0.12s ease;
-  }
-
-  .toggleBubble.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .toggleBubble .icon {
-    transform: translateY(-1px);
-  }
-
-  [data-agentation-theme="light"] .toggleBubble {
-    color: rgba(0, 0, 0, 0.8);
-  }
-
-  .toggleBubble.visible:hover {
-    background: #2a2a2a;
-  }
-
-  .toggleBubble.visible:active {
-    transform: scale(0.95);
-  }
-
-  .toggleBubble.hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .bubbleBadge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    user-select: none;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background-color: var(--agentation-color-accent, #0088ff);
-    color: white;
-    font-size: 0.625rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow:
-      0 0 0 2px #1a1a1a,
-      0 1px 3px rgba(0, 0, 0, 0.2);
-    opacity: 1;
-    transform: scale(1);
-    transition:
-      transform 0.3s ease,
-      opacity 0.2s ease;
-    animation: badgeEnter 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) 0.4s both;
-  }
-
-  .controlsContent {
-    position: absolute;
-    inset: 0;
-    padding: 0.375rem;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    transition:
-      filter 0.8s cubic-bezier(0.19, 1, 0.22, 1),
-      opacity 0.8s cubic-bezier(0.19, 1, 0.22, 1),
-      transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-  }
-
-  .controlsContent.visible {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
-    pointer-events: auto;
-  }
-
-  .controlsContent.hidden {
-    opacity: 0;
-    filter: blur(10px);
-    transform: scale(0.4);
-    pointer-events: none;
-  }
-
-  .divider {
-    width: 1px;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  .buttonWrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .buttonWrapper:hover .buttonTooltip {
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(-50%) scale(1);
-    transition-delay: 0.85s;
-  }
-
-  .buttonWrapper:has(.controlButton:disabled):hover .buttonTooltip {
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  .tooltipsHidden .buttonTooltip {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    transition: none !important;
-  }
-
-  .buttonTooltip {
-    position: absolute;
-    bottom: calc(100% + 14px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.95);
-    padding: 6px 10px;
-    background: #1a1a1a;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 12px;
-    font-weight: 500;
-    border-radius: 8px;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    z-index: 2147483647;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition:
-      opacity 0.135s ease,
-      transform 0.135s ease,
-      visibility 0.135s ease;
-  }
-
-  .buttonTooltip::after {
-    content: "";
-    position: absolute;
-    top: calc(100% - 4px);
-    left: 50%;
-    transform: translateX(-50%) rotate(45deg);
-    width: 8px;
-    height: 8px;
-    background: #1a1a1a;
-    border-radius: 0 0 2px 0;
-  }
-
-  .buttonWrapperAlignLeft .buttonTooltip {
-    left: 50%;
-    transform: translateX(-12px) scale(0.95);
-  }
-
-  .buttonWrapperAlignLeft .buttonTooltip::after {
-    left: 16px;
-  }
-
-  .buttonWrapperAlignLeft:hover .buttonTooltip {
-    transform: translateX(-12px) scale(1);
-  }
-
-  .buttonWrapperAlignRight .buttonTooltip {
-    left: 50%;
-    transform: translateX(calc(-100% + 12px)) scale(0.95);
-  }
-
-  .buttonWrapperAlignRight .buttonTooltip::after {
-    left: auto;
-    right: 8px;
-  }
-
-  .buttonWrapperAlignRight:hover .buttonTooltip {
-    transform: translateX(calc(-100% + 12px)) scale(1);
-  }
-
-  .settingsPanel {
-    position: absolute;
-    right: 5px;
-    bottom: calc(100% + 0.5rem);
-    z-index: 1;
-    overflow: hidden;
-    background: #1a1a1a;
-    border-radius: 1rem;
-    padding: 13px 0 16px;
-    min-width: 205px;
-    cursor: default;
-    opacity: 1;
-    box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
-    transition:
-      background-color 0.25s ease,
-      box-shadow 0.25s ease;
-  }
-
-  .settingsPanel.enter {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s ease,
-      filter 0.2s ease;
-  }
-
-  .settingsPanel.exit {
-    opacity: 0;
-    transform: translateY(8px) scale(0.95);
-    filter: blur(5px);
-    pointer-events: none;
-    transition:
-      opacity 0.1s ease,
-      transform 0.1s ease,
-      filter 0.1s ease;
-  }
-
-  .settingsPanelContainer {
-    overflow: visible;
-    position: relative;
-    display: flex;
-    padding: 0 1rem;
-  }
-
-  .settingsPage {
-    min-width: 100%;
-    flex-shrink: 0;
-    transition:
-      transform 0.2s ease,
-      opacity 0.2s ease;
-    transition-delay: 0s;
-    opacity: 1;
-  }
-
-  .settingsHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 24px;
-    margin-bottom: 0.5rem;
-    padding-bottom: 9px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  }
-
-  .settingsBrand {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: -0.0094em;
-    color: #fff;
-    text-decoration: none;
-  }
-
-  .settingsBrandSlash {
-    color: var(--agentation-color-accent, #0088ff);
-    transition: color 0.2s ease;
-  }
-
-  .settingsVersion {
-    font-size: 11px;
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.4);
-    margin-left: auto;
-    letter-spacing: -0.0094em;
-  }
-
-  .settingsSection {
-    margin-top: 0;
-    padding-top: calc(0.5rem + 4px);
-  }
-
-  .settingsRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 24px;
-  }
-
-  .settingsRow.settingsRowMarginTop {
-    margin-top: 8px;
-  }
-
-  .cycleButton {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: #fff;
-    cursor: pointer;
-    letter-spacing: -0.0094em;
-  }
-
-  .cycleIcon {
-    opacity: 0.85;
-  }
-
-  .cycleButtonText {
-    display: inline-block;
-    animation: cycleTextIn 0.2s ease-out;
-  }
-
-  @keyframes cycleTextIn {
-    0% {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .settingsLabel {
-    font-size: 0.8125rem;
-    font-weight: 400;
-    letter-spacing: -0.0094em;
-    color: rgba(255, 255, 255, 0.5);
-    display: flex;
-    align-items: center;
-    gap: 0.125rem;
-  }
-
-  .settingsLabelMarker {
-    padding-top: 3px;
-    margin-bottom: 10px;
-  }
-
-  .settingsOptions {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  .settingsOption {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    padding: 0.375rem 0.5rem;
-    border: none;
-    border-radius: 0.375rem;
-    background: transparent;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.85);
-    cursor: pointer;
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .settingsOption:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .settingsOption.selected {
-    background: color-mix(in srgb, var(--agentation-color-blue, #0088ff) 15%, transparent);
-    color: var(--agentation-color-blue, #0088ff);
-  }
-
-  button {
+  :global([data-agentation-root] button) {
     border: none;
     border-radius: 8px;
     padding: 6px 10px;
     font-size: 12px;
     line-height: 1.2;
+    font-family: inherit;
     cursor: pointer;
   }
 
-  button:disabled {
+  :global([data-agentation-root] button:disabled) {
     opacity: 0.45;
     cursor: default;
-  }
-
-  .primary {
-    background: linear-gradient(120deg, #3b82f6, #2f66d9);
-    color: #fff;
-  }
-
-  .secondary {
-    background: rgba(255, 255, 255, 0.12);
-    color: #f2f4ff;
-  }
-
-  .danger {
-    background: rgba(239, 68, 68, 0.16);
-    color: #ffd9d9;
-  }
-
-  .controlButton {
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.85);
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease,
-      transform 0.1s ease,
-      opacity 0.2s ease;
-  }
-
-  .buttonWrapperAlignLeft .controlButton {
-    margin-left: -1px;
-  }
-
-  .buttonWrapperAlignRight .controlButton {
-    margin-right: -1px;
-  }
-
-  .icon {
-    display: block;
-  }
-
-  .controlButton:hover:not(:disabled):not(.active) {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-  }
-
-  .controlButton:active:not(:disabled) {
-    transform: scale(0.92);
-  }
-
-  .controlButton.active {
-    color: #60a5fa;
-    background: color-mix(in srgb, #60a5fa 24%, transparent);
-  }
-
-  .controlButton[data-danger="true"]:hover:not(:disabled):not(.active) {
-    background: color-mix(in srgb, #ef4444 24%, transparent);
-    color: #ef4444;
-  }
-
-  .collapseButton {
-    margin-left: 0;
-  }
-
-  .collapseButtonWrapper {
-    margin-left: auto;
-  }
-
-  .marker {
-    position: fixed;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--agentation-color-blue, #0088ff);
-    color: #fff;
-    border: none;
-    transform: translate(-50%, -50%);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    cursor: pointer;
-    pointer-events: auto;
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.2),
-      inset 0 0 0 1px rgba(0, 0, 0, 0.04);
-    user-select: none;
-    will-change: transform, opacity;
-    contain: layout style;
-    z-index: 2147483647;
-    transition:
-      background-color 0.12s ease,
-      transform 0.1s ease;
-    animation: markerIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .marker.pending {
-    position: fixed;
-    background-color: var(--agentation-color-blue, #0088ff);
-    cursor: default;
-    pointer-events: none;
-  }
-
-  .markerLabel {
-    display: block;
-  }
-
-  .markerEditIcon {
-    position: absolute;
-    inset: 0;
-    display: none;
-    place-items: center;
-    pointer-events: none;
-  }
-
-  .markerEditIconSvg {
-    display: block;
-  }
-
-  .marker:hover {
-    z-index: 2147483648;
-    animation: none;
-    transform: translate(-50%, -50%) scale(1.06);
-  }
-
-  .marker:hover .markerLabel {
-    display: none;
-  }
-
-  .marker:hover .markerEditIcon {
-    display: grid;
-  }
-
-  .markerTooltip {
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.909);
-    z-index: 2147483647;
-    background: #1a1a1a;
-    padding: 8px 0.75rem;
-    border-radius: 0.75rem;
-    font-family:
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      sans-serif;
-    text-align: left;
-    font-weight: 400;
-    color: #fff;
-    box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
-    min-width: 120px;
-    max-width: 200px;
-    pointer-events: none;
-    cursor: default;
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  .marker:hover .markerTooltip {
-    opacity: 1;
-    visibility: visible;
-    animation: tooltipIn 0.1s ease-out forwards;
-  }
-
-  .marker.editingAny .markerTooltip {
-    display: none;
-  }
-
-  .markerQuote {
-    display: block;
-    font-size: 12px;
-    font-style: italic;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 0.3125rem;
-    line-height: 1.4;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .markerNote {
-    display: block;
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.4;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-bottom: 2px;
-  }
-
-  .hover-highlight {
-    position: fixed;
-    border: 2px solid color-mix(in srgb, #3b82f6 62%, transparent);
-    border-radius: 6px;
-    background: color-mix(in srgb, #3b82f6 10%, transparent);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
-    pointer-events: none;
-    z-index: 2147483645;
-    animation: hoverHighlightIn 0.12s ease-out forwards;
-  }
-
-  .hover-tooltip {
-    position: fixed;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.85);
-    padding: 0.35rem 0.6rem;
-    border-radius: 0.375rem;
-    pointer-events: none !important;
-    white-space: nowrap;
-    max-width: 280px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    z-index: 2147483646;
-    animation: hoverTooltipIn 0.1s ease-out forwards;
-  }
-
-  .hoverReactPath {
-    font-size: 0.625rem;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 0.15rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .hoverElementName {
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   :global(body.agentation-annotate-cursor) {
     cursor: crosshair !important;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  .popup {
+  :global(body.agentation-annotate-cursor [draggable="true"]) {
+    -webkit-user-drag: none;
+  }
+
+  .multiSelectHighlight {
+    position: fixed;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+    z-index: 99996;
+  }
+
+  .multiSelectHighlight.blue {
+    border: 2px solid color-mix(in srgb, var(--agentation-color-blue, #3c82f7) 72%, transparent);
+    background: color-mix(in srgb, var(--agentation-color-blue, #3c82f7) 12%, transparent);
+  }
+
+  .multiSelectHighlight.green {
+    border: 2px solid color-mix(in srgb, var(--agentation-color-green, #34c759) 80%, transparent);
+    background: color-mix(in srgb, var(--agentation-color-green, #34c759) 14%, transparent);
+  }
+
+  .multiSelectCombinedOutline {
+    position: fixed;
+    border: 2px dashed color-mix(in srgb, var(--agentation-color-green, #34c759) 88%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--agentation-color-green, #34c759) 8%, transparent);
+    pointer-events: none;
+    z-index: 99996;
+  }
+
+  .dragSelectionOutline {
+    position: fixed;
+    border: 2px dashed color-mix(in srgb, var(--agentation-color-green, #34c759) 86%, transparent);
+    background: color-mix(in srgb, var(--agentation-color-green, #34c759) 10%, transparent);
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: 99997;
+  }
+
+  .dragAffectedElement {
+    position: fixed;
+    border: 2px solid color-mix(in srgb, var(--agentation-color-green, #34c759) 70%, transparent);
+    background: color-mix(in srgb, var(--agentation-color-green, #34c759) 12%, transparent);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 99996;
+  }
+
+  .dragSelectionLabel {
     position: fixed;
     transform: translateX(-50%);
-    width: 280px;
-    padding: 0.75rem 1rem 14px;
-    border-radius: 16px;
-    background: #1a1a1a;
+    background: rgba(0, 0, 0, 0.85);
     color: #fff;
-    border: none;
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
-    z-index: 2147483647;
-    pointer-events: auto;
-    will-change: transform, opacity;
-    opacity: 0;
-  }
-
-  .popup.enter {
-    animation: popupEnter 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
-  .popup.entered {
-    opacity: 1;
-    transform: translateX(-50%) scale(1) translateY(0);
-  }
-
-  .popup.exit {
-    animation: popupExit 0.15s ease-in forwards;
-  }
-
-  .popup.entered.shake {
-    animation: shake 0.25s ease-out;
-  }
-
-  .popupHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.5625rem;
-  }
-
-  .popupElement {
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    border-radius: 999px;
+    padding: 0.35rem 0.6rem;
+    pointer-events: none;
+    z-index: 99997;
     white-space: nowrap;
+    max-width: min(70vw, 420px);
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
   }
 
-  .popupQuote {
-    font-size: 12px;
-    font-style: italic;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 0.5rem;
-    padding: 0.4rem 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 0.25rem;
-    line-height: 1.45;
-  }
-
-  .popupTextarea {
-    box-sizing: border-box;
-    width: 100%;
-    resize: none;
-    overflow: hidden;
-    min-height: 74px;
-    padding: 0.5rem 0.625rem;
-    font-size: 0.8125rem;
-    font-family: inherit;
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-    outline: none;
-    margin-bottom: 0;
-    transition: border-color 0.15s ease;
-  }
-
-  .popupTextarea:focus {
-    border-color: var(--agentation-color-blue, #0088ff);
-  }
-
-  .popupTextarea::placeholder {
-    color: rgba(255, 255, 255, 0.35);
-  }
-
-  .popupActions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.375rem;
-    margin-top: 0.5rem;
-  }
-
-  .deleteButton {
-    margin-right: auto;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease,
-      transform 0.1s ease;
-  }
-
-  .deleteButton:hover {
-    background-color: color-mix(in srgb, var(--agentation-color-red, #ff383c) 25%, transparent);
-    color: var(--agentation-color-red, #ff383c);
-  }
-
-  .deleteButton:active {
-    transform: scale(0.92);
-  }
-
-  .cancelButton,
-  .submitButton {
-    padding: 0.4rem 0.875rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 1rem;
-    border: none;
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease,
-      opacity 0.15s ease;
-  }
-
-  .cancelButton {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .cancelButton:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  .submitButton {
-    color: #fff;
-    background: var(--agentation-color-blue, #0088ff);
-  }
-
-  .submitButton:hover:not(:disabled) {
-    filter: brightness(0.9);
-  }
-
-  .submitButton:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  [data-agentation-theme="light"] .toolbarContainer {
-    background: #fff;
-    color: rgba(0, 0, 0, 0.85);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.08),
-      0 4px 16px rgba(0, 0, 0, 0.06),
-      0 0 0 1px rgba(0, 0, 0, 0.04);
-  }
-
-  [data-agentation-theme="light"] .toggleBubble.visible:hover {
-    background: #f5f5f5;
-  }
-
-  [data-agentation-theme="light"] .controlButton {
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  [data-agentation-theme="light"] .controlButton:hover:not(:disabled):not(.active) {
-    background: rgba(0, 0, 0, 0.06);
-    color: rgba(0, 0, 0, 0.85);
-  }
-
-  [data-agentation-theme="light"] .controlButton.active {
-    color: var(--agentation-color-blue, #0088ff);
-    background: color-mix(in srgb, var(--agentation-color-blue, #0088ff) 15%, transparent);
-  }
-
-  [data-agentation-theme="light"] .controlButton[data-danger="true"]:hover:not(:disabled):not(.active) {
-    color: var(--agentation-color-red, #ff383c);
-    background: color-mix(in srgb, var(--agentation-color-red, #ff383c) 15%, transparent);
-  }
-
-  [data-agentation-theme="light"] .buttonTooltip {
-    background: #fff;
-    color: rgba(0, 0, 0, 0.82);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.14),
-      0 0 0 1px rgba(0, 0, 0, 0.08);
-  }
-
-  [data-agentation-theme="light"] .buttonTooltip::after {
-    background: #fff;
-  }
-
-  [data-agentation-theme="light"] .settingsPanel {
-    background: #fff;
-    box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.12),
-      0 0 0 1px rgba(0, 0, 0, 0.06);
-  }
-
-  [data-agentation-theme="light"] .settingsHeader {
-    border-bottom-color: rgba(0, 0, 0, 0.08);
-  }
-
-  [data-agentation-theme="light"] .settingsBrand {
-    color: rgba(0, 0, 0, 0.88);
-  }
-
-  [data-agentation-theme="light"] .settingsVersion,
-  [data-agentation-theme="light"] .settingsLabel {
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  [data-agentation-theme="light"] .cycleButton {
-    color: rgba(0, 0, 0, 0.85);
-  }
-
-  [data-agentation-theme="light"] .settingsOption {
-    color: rgba(0, 0, 0, 0.7);
-  }
-
-  [data-agentation-theme="light"] .settingsOption:hover {
-    background: rgba(0, 0, 0, 0.05);
-  }
-
-  [data-agentation-theme="light"] .settingsOption.selected {
-    color: var(--agentation-color-blue, #0088ff);
-    background: color-mix(in srgb, var(--agentation-color-blue, #0088ff) 15%, transparent);
-  }
-
-  [data-agentation-theme="light"] .markerTooltip {
-    background: #fff;
-    box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.12),
-      0 0 0 1px rgba(0, 0, 0, 0.06);
-  }
-
-  [data-agentation-theme="light"] .markerQuote {
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  [data-agentation-theme="light"] .markerNote {
-    color: rgba(0, 0, 0, 0.85);
-  }
-
-  [data-agentation-theme="light"] .popup {
-    background: #fff;
-    color: rgba(0, 0, 0, 0.85);
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.12),
-      0 0 0 1px rgba(0, 0, 0, 0.06);
-  }
-
-  [data-agentation-theme="light"] .popupElement {
-    color: rgba(0, 0, 0, 0.6);
-  }
-
-  [data-agentation-theme="light"] .popupQuote {
-    color: rgba(0, 0, 0, 0.55);
-    background: rgba(0, 0, 0, 0.04);
-  }
-
-  [data-agentation-theme="light"] .popupTextarea {
-    background: rgba(0, 0, 0, 0.03);
-    color: #1a1a1a;
-    border-color: rgba(0, 0, 0, 0.12);
-  }
-
-  [data-agentation-theme="light"] .popupTextarea::placeholder {
-    color: rgba(0, 0, 0, 0.4);
-  }
-
-  [data-agentation-theme="light"] .cancelButton {
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  [data-agentation-theme="light"] .cancelButton:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: rgba(0, 0, 0, 0.75);
-  }
-
-  [data-agentation-theme="light"] .hover-tooltip {
+  :global([data-agentation-theme="light"]) .dragSelectionLabel {
     background: rgba(255, 255, 255, 0.96);
-    color: rgba(0, 0, 0, 0.82);
+    color: rgba(0, 0, 0, 0.85);
     box-shadow:
       0 2px 8px rgba(0, 0, 0, 0.14),
       0 0 0 1px rgba(0, 0, 0, 0.08);
   }
 
-  [data-agentation-theme="light"] .hoverReactPath {
-    color: rgba(0, 0, 0, 0.45);
-  }
-
-  [data-agentation-theme="light"] .deleteButton {
-    color: rgba(0, 0, 0, 0.4);
+  :global([data-agentation-theme="light"]) .multiSelectHighlight.green {
+    border-color: color-mix(in srgb, var(--agentation-color-green, #34c759) 74%, transparent);
+    background: color-mix(in srgb, var(--agentation-color-green, #34c759) 10%, transparent);
   }
 
   @media (max-width: 640px) {
     .agentation-root {
       right: 10px;
       bottom: 10px;
-    }
-
-    .toolbarContainer.expanded {
-      width: 297px;
-    }
-
-    .settingsPanel {
-      right: 0;
     }
   }
 </style>

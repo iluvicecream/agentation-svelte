@@ -2,8 +2,8 @@ node_modules/.claude/settings.local.json
 node_modules
 mcp/dist
 .DS_Store
-agentation-svelte/.svelte-kit
-agentation-svelte/dist
-agentation-svelte/node_modules
-agentation-svelte/example/dist
-agentation-svelte/example/node_modules
+.svelte-kit
+dist
+agentation-svelte/node_modules/
+agentation-svelte/example/dist/
+agentation-svelte/example/node_modules/
