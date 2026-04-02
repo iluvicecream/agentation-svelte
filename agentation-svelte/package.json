@@ -21,7 +21,8 @@
     "build": "svelte-package",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "dev": "pnpm --filter agentation-svelte-demo dev",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "publish": "pnpm publish"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"
