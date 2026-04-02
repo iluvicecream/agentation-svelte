@@ -23,6 +23,7 @@
     getSvelteComponentName,
     getSvelteSourceLocation
   } from "./svelte-detection";
+  import { openSourceInVSCode } from "./editor-link";
   import {
     freeze as freezeAll,
     originalSetInterval,
@@ -47,6 +48,7 @@
     autoClearAfterCopy: boolean;
     blockInteractions: boolean;
     annotationColorId: "blue" | "green" | "yellow" | "orange" | "red" | "indigo" | "cyan";
+    workspaceRoot: string;
     webhookUrl: string;
     webhooksEnabled: boolean;
   };
@@ -129,7 +131,9 @@
   let {
     copyToClipboard = true,
     defaultOutputMode = "standard",
+    workspaceRoot,
     endpoint,
+    onOpenEditor,
     onAnnotationAdd,
     onAnnotationDelete,
     onAnnotationUpdate,
@@ -178,6 +182,7 @@
     autoClearAfterCopy: false,
     blockInteractions: true,
     annotationColorId: "blue",
+    workspaceRoot: "",
     webhookUrl: "",
     webhooksEnabled: true
   });
@@ -797,6 +802,13 @@
     settings = { ...settings, ...patch };
   }
 
+  function openAnnotationSource(sourceFile?: string, annotationId?: string) {
+    if (!sourceFile) return;
+    onOpenEditor?.({ annotationId, sourceFile });
+    const effectiveWorkspaceRoot = settings.workspaceRoot.trim() || workspaceRoot;
+    openSourceInVSCode(sourceFile, effectiveWorkspaceRoot);
+  }
+
   function isValidUrl(url: string): boolean {
     if (!url.trim()) return false;
     try {
@@ -912,6 +924,14 @@
             parsed.annotationColorId && COLOR_OPTIONS.some((c) => c.id === parsed.annotationColorId)
               ? parsed.annotationColorId
               : settings.annotationColorId
+        };
+
+      }
+
+      if (!settings.workspaceRoot.trim() && workspaceRoot) {
+        settings = {
+          ...settings,
+          workspaceRoot
         };
       }
     } catch {
@@ -1398,6 +1418,9 @@
     onSave={saveDraft}
     onClose={closePopup}
     onRemove={removeAnnotation}
+    onOpenSource={(sourceFile, annotationId) => {
+      openAnnotationSource(sourceFile, annotationId);
+    }}
   />
 </div>
 

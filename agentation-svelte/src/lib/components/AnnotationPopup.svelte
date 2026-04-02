@@ -46,7 +46,8 @@
     onAutoResize,
     onSave,
     onClose,
-    onRemove
+    onRemove,
+    onOpenSource
   }: {
     hasPopup: boolean;
     draft: DraftAnnotation | null;
@@ -64,7 +65,19 @@
     onSave: () => void;
     onClose: () => void;
     onRemove: (annotation: Annotation) => void;
+    onOpenSource: (sourceFile: string, annotationId?: string) => void;
   } = $props();
+
+  const editingAnnotation = $derived.by(() =>
+    editingAnnotationId ? annotations.find((item) => item.id === editingAnnotationId) ?? null : null
+  );
+
+  const sourceLocation = $derived.by(() => editingAnnotation?.sourceFile ?? draft?.sourceFile);
+
+  function handleOpenSource() {
+    if (!sourceLocation) return;
+    onOpenSource(sourceLocation, editingAnnotation?.id);
+  }
 </script>
 
 {#if hasPopup && draft}
@@ -83,11 +96,17 @@
       {/if}
     </div>
 
+    {#if sourceLocation}
+      <button class="sourceButton" type="button" onclick={handleOpenSource} title={`Open ${sourceLocation}`}>
+        Open in editor
+      </button>
+    {/if}
+
     {#if draft.computedStylesObj && Object.keys(draft.computedStylesObj).length > 0}
       <div class={`stylesWrapper ${stylesExpanded ? "expanded" : ""}`}>
         <div class="stylesInner">
           <div class="stylesBlock">
-            {#each Object.entries(draft.computedStylesObj) as [key, value]}
+            {#each Object.entries(draft.computedStylesObj) as [key, value] (key)}
               <div class="styleLine">
                 <span class="styleProperty">{key}</span>: <span class="styleValue">{value}</span>
               </div>
@@ -180,6 +199,8 @@
   .styleProperty { color: #c792ea; }
   .styleValue { color: rgba(255,255,255,.85); }
   .popupQuote { font-size: 12px; font-style: italic; color: rgba(255,255,255,.6); margin-bottom: .5rem; padding: .4rem .5rem; background: rgba(255,255,255,.05); border-radius: .25rem; line-height: 1.45; }
+  .sourceButton { margin-bottom: .5rem; padding: .35rem .7rem; border-radius: 999px; border: none; background: color-mix(in srgb, var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)) 20%, transparent); color: #fff; font-size: 11px; font-weight: 500; line-height: 1.2; }
+  .sourceButton:hover { background: color-mix(in srgb, var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)) 34%, transparent); }
   .popupTextarea { box-sizing: border-box; width: 100%; resize: none; overflow: hidden; min-height: 74px; padding: .5rem .625rem; font-size: .8125rem; font-family: inherit; background: rgba(255,255,255,.05); color: #fff; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; outline: none; margin-bottom: 0; transition: border-color .15s ease; }
   .popupTextarea:focus { border-color: var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)); }
   .popupTextarea::placeholder { color: rgba(255,255,255,.35); }
@@ -202,6 +223,8 @@
   :global([data-agentation-theme="light"]) .popupElement { color: rgba(0,0,0,.6); }
   :global([data-agentation-theme="light"]) .popupChevron { color: rgba(0,0,0,.4); }
   :global([data-agentation-theme="light"]) .popupQuote { color: rgba(0,0,0,.55); background: rgba(0,0,0,.04); }
+  :global([data-agentation-theme="light"]) .sourceButton { color: var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)); background: color-mix(in srgb, var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)) 12%, transparent); }
+  :global([data-agentation-theme="light"]) .sourceButton:hover { background: color-mix(in srgb, var(--agentation-popup-accent, var(--agentation-color-blue, #3c82f7)) 18%, transparent); }
   :global([data-agentation-theme="light"]) .stylesBlock { background: rgba(0,0,0,.03); }
   :global([data-agentation-theme="light"]) .styleLine { color: rgba(0,0,0,.75); }
   :global([data-agentation-theme="light"]) .styleProperty { color: #7c3aed; }

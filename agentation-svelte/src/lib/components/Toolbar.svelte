@@ -25,6 +25,7 @@
     autoClearAfterCopy: boolean;
     blockInteractions: boolean;
     annotationColorId: "blue" | "green" | "yellow" | "orange" | "red" | "indigo" | "cyan";
+    workspaceRoot: string;
     webhookUrl: string;
     webhooksEnabled: boolean;
   };
@@ -378,6 +379,25 @@
         <div class="settingsSection settingsSectionExtraPadding settingsSectionGrow">
           <div class="settingsRow">
             <span class="settingsLabel">
+              Workspace root
+              <span class="helpDot" title="Used to resolve relative source paths for Open in editor.">
+                <HelpCircle size={12} strokeWidth={2.1} />
+              </span>
+            </span>
+          </div>
+          <textarea
+            class="workspaceRootInput"
+            placeholder="/Users/you/dev/your-project"
+            value={settings.workspaceRoot}
+            oninput={(event) => onUpdateSettings({ workspaceRoot: (event.currentTarget as HTMLTextAreaElement).value })}
+          ></textarea>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="settingsSection settingsSectionExtraPadding settingsSectionGrow">
+          <div class="settingsRow">
+            <span class="settingsLabel">
               Webhooks
               <span class="helpDot" title="Send annotation events to your endpoint.">
                 <HelpCircle size={12} strokeWidth={2.1} />
@@ -494,6 +514,8 @@
   .autoSendLabel.active { color: #66b8ff; }
   .autoSendLabel.disabled { opacity: .3; }
   .webhookUrlInput { display: block; width: 100%; flex: 1; min-height: 60px; box-sizing: border-box; margin-top: 11px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; background: rgba(255,255,255,.03); font-family: inherit; font-size: .75rem; font-weight: 400; color: #fff; outline: none; resize: none; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+  .workspaceRootInput { display: block; width: 100%; box-sizing: border-box; margin-top: 11px; min-height: 44px; max-height: 96px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; background: rgba(255,255,255,.03); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .75rem; font-weight: 400; color: #fff; outline: none; resize: vertical; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+  .workspaceRootInput:focus { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.08); }
   .webhookUrlInput:focus { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.08); }
   .helpDot { display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,.38); }
   .learnMoreLink { color: rgba(255,255,255,.8); text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: rgba(255,255,255,.2); text-underline-offset: 2px; transition: color .15s ease; }
@@ -566,6 +588,8 @@
   :global([data-agentation-theme="light"]) .autoSendLabel { color: rgba(0,0,0,.45); }
   :global([data-agentation-theme="light"]) .autoSendLabel.active { color: var(--agentation-color-blue, #3c82f7); }
   :global([data-agentation-theme="light"]) .webhookUrlInput { border-color: rgba(0,0,0,.1); background: rgba(0,0,0,.03); color: rgba(0,0,0,.85); }
+  :global([data-agentation-theme="light"]) .workspaceRootInput { border-color: rgba(0,0,0,.1); background: rgba(0,0,0,.03); color: rgba(0,0,0,.85); }
+  :global([data-agentation-theme="light"]) .workspaceRootInput:focus { border-color: rgba(0,0,0,.25); background: rgba(0,0,0,.05); }
   :global([data-agentation-theme="light"]) .webhookUrlInput:focus { border-color: rgba(0,0,0,.25); background: rgba(0,0,0,.05); }
   :global([data-agentation-theme="light"]) .helpDot { color: rgba(0,0,0,.35); }
   :global([data-agentation-theme="light"]) .learnMoreLink { color: rgba(0,0,0,.6); text-decoration-color: rgba(0,0,0,.2); }

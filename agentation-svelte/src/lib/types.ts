@@ -30,11 +30,18 @@ export type OutputMode = "compact" | "standard" | "detailed" | "forensic";
 export type AgentationProps = {
   copyToClipboard?: boolean;
   defaultOutputMode?: OutputMode;
+  workspaceRoot?: string;
   endpoint?: string;
+  onOpenEditor?: (action: EditorAction) => void;
   onAnnotationAdd?: (annotation: Annotation) => void;
   onAnnotationDelete?: (annotation: Annotation) => void;
   onAnnotationUpdate?: (annotation: Annotation) => void;
   onAnnotationsClear?: (annotations: Annotation[]) => void;
   onCopy?: (markdown: string) => void;
   onSubmit?: (markdown: string, annotations: Annotation[]) => void;
+};
+
+export type EditorAction = {
+  annotationId?: string;
+  sourceFile: string;
 };
