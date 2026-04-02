@@ -16,7 +16,36 @@ body {
 main {
   max-width: 920px;
   margin: 0 auto;
-  padding: 64px 24px 140px;
+  padding: 80px 24px 140px;
+}
+
+.navbar {
+  background: rgba(20, 29, 49, 0.72);
+  border-bottom: 1px solid rgba(173, 192, 255, 0.2);
+  padding: 0;
+  margin: -64px -24px 0 -24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar ul {
+  list-style: none;
+  margin: 0;
+  padding: 16px 24px;
+  display: flex;
+  gap: 24px;
+  width: 100%;
+}
+
+.navbar a {
+  color: #e5ecff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.navbar a:hover {
+  color: #9cb4ff;
 }
 
 .eyebrow {
@@ -30,6 +59,13 @@ main {
 h1 {
   margin: 0.4rem 0 0.8rem;
   font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.gradient-text {
+  background: linear-gradient(120deg, #3479f7, #2059c4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .lead {

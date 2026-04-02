@@ -32,6 +32,17 @@
   } from "./freeze-animations";
   import type { PopupAnimState, PopupTimers } from "./popup";
   import { clearPopupTimers, startOpenPopupAnimation } from "./popup";
+  import {
+    createSession,
+    deleteAnnotationFromServer,
+    getSession,
+    isRenderableAnnotation,
+    loadSessionId,
+    requestAction,
+    saveSessionId,
+    syncAnnotation,
+    updateAnnotationOnServer
+  } from "./session-sync";
   import { loadAnnotations, saveAnnotations } from "./storage";
   import type { AgentationProps, Annotation, DraftAnnotation, OutputMode } from "./types";
 
@@ -133,6 +144,8 @@
     defaultOutputMode = "standard",
     workspaceRoot,
     endpoint,
+    sessionId: initialSessionId,
+    onSessionCreated,
     onOpenEditor,
     onAnnotationAdd,
     onAnnotationDelete,
@@ -178,6 +191,8 @@
   let isFrozen = $state(false);
   let connectionStatus = $state<"disconnected" | "connecting" | "connected">("disconnected");
   let sendState = $state<"idle" | "sending" | "sent" | "failed">("idle");
+  let currentSessionId = $state<string | null>(null);
+  let sessionInitialized = $state(false);
   let settings = $state<ToolbarSettings>({
     autoClearAfterCopy: false,
     blockInteractions: true,
@@ -188,6 +203,7 @@
   });
 
   const pathname = $derived(typeof window !== "undefined" ? window.location.pathname : "/");
+  const visibleAnnotations = $derived.by(() => annotations.filter((annotation) => isRenderableAnnotation(annotation)));
   const hasPopup = $derived(draft !== null);
   const popupPlaceholder = $derived.by(() => {
     if (editingAnnotationId) return "Edit your feedback...";
@@ -685,6 +701,7 @@
     if (!draft || !draftComment.trim()) return;
 
     if (editingAnnotationId) {
+      const annotationIdToUpdate = editingAnnotationId;
       annotations = annotations.map((annotation) => {
         if (annotation.id !== editingAnnotationId) return annotation;
         const updated = {
@@ -695,6 +712,16 @@
         onAnnotationUpdate?.(updated);
         return updated;
       });
+
+      if (endpoint && annotationIdToUpdate) {
+        updateAnnotationOnServer(endpoint, annotationIdToUpdate, {
+          ...draft,
+          comment: draftComment.trim()
+        }).catch(() => {
+          // Ignore sync failure and keep local state.
+        });
+      }
+
       closePopup();
       return;
     }
@@ -703,16 +730,36 @@
       id: `annotation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ...draft,
       comment: draftComment.trim(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ...(endpoint && currentSessionId ? { status: "pending" as const } : {})
     };
     annotations = [...annotations, annotation];
     onAnnotationAdd?.(annotation);
+
+    if (endpoint && currentSessionId) {
+      syncAnnotation(endpoint, currentSessionId, annotation)
+        .then((serverAnnotation) => {
+          if (serverAnnotation.id === annotation.id) return;
+          annotations = annotations.map((item) => (item.id === annotation.id ? { ...item, id: serverAnnotation.id } : item));
+        })
+        .catch(() => {
+          // Ignore sync failure and keep local state.
+        });
+    }
+
     closePopup();
   }
 
   function removeAnnotation(annotation: Annotation) {
     annotations = annotations.filter((item) => item.id !== annotation.id);
     onAnnotationDelete?.(annotation);
+
+    if (endpoint) {
+      deleteAnnotationFromServer(endpoint, annotation.id).catch(() => {
+        // Ignore delete failure and keep local state.
+      });
+    }
+
     if (editingAnnotationId === annotation.id) closePopup();
   }
 
@@ -734,7 +781,7 @@
   }
 
   async function copyAnnotations() {
-    const output = generateOutput(annotations, pathname, outputMode);
+    const output = generateOutput(visibleAnnotations, pathname, outputMode);
     if (!output) return;
 
     if (copyToClipboard && typeof navigator !== "undefined" && navigator.clipboard) {
@@ -748,7 +795,7 @@
     onCopy?.(output);
 
     if (settings.webhooksEnabled && settings.webhookUrl) {
-      await fireWebhook("copy", { output, annotations });
+      await fireWebhook("copy", { output, annotations: visibleAnnotations });
     }
 
     if (settings.autoClearAfterCopy) {
@@ -855,21 +902,17 @@
   }
 
   async function sendToAgent() {
-    if (!endpoint || connectionStatus !== "connected") return;
-    const output = generateOutput(annotations, pathname, outputMode);
+    if (!endpoint || connectionStatus !== "connected" || !currentSessionId) return;
+    const output = generateOutput(visibleAnnotations, pathname, outputMode);
     if (!output) return;
 
-    onSubmit?.(output, annotations);
+    onSubmit?.(output, visibleAnnotations);
     sendState = "sending";
     await new Promise((resolve) => originalSetTimeout(resolve, 150));
 
     try {
-      const response = await fetch(`${endpoint}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ output, annotations, pathname, timestamp: Date.now() })
-      });
-      const ok = response.ok;
+      const result = await requestAction(endpoint, currentSessionId, output);
+      const ok = result.success;
       sendState = ok ? "sent" : "failed";
       if (ok && settings.autoClearAfterCopy) {
         originalSetTimeout(() => {
@@ -1205,6 +1248,108 @@
   });
 
   $effect(() => {
+    if (!endpoint || !mounted || sessionInitialized) return;
+    sessionInitialized = true;
+
+    const initSession = async () => {
+      try {
+        const pageUrl = typeof window !== "undefined" ? window.location.href : pathname;
+        const localAnnotations = loadAnnotations(pathname);
+        const rejoinId = initialSessionId || loadSessionId(pathname);
+
+        if (rejoinId) {
+          const session = await getSession(endpoint, rejoinId);
+          currentSessionId = session.id;
+          saveSessionId(pathname, session.id);
+
+          let merged = session.annotations.filter((annotation) => isRenderableAnnotation(annotation));
+          const serverIds = new Set(session.annotations.map((annotation) => annotation.id));
+          const unsyncedLocal = localAnnotations.filter((annotation) => !serverIds.has(annotation.id));
+
+          if (unsyncedLocal.length > 0) {
+            const results = await Promise.allSettled(
+              unsyncedLocal.map((annotation) =>
+                syncAnnotation(endpoint, session.id, {
+                  ...annotation,
+                  status: annotation.status ?? "pending"
+                })
+              )
+            );
+            const synced = results
+              .filter((result): result is PromiseFulfilledResult<Annotation> => result.status === "fulfilled")
+              .map((result) => result.value)
+              .filter((annotation) => isRenderableAnnotation(annotation));
+            merged = [...merged, ...synced];
+          }
+
+          const deduped = new Map(merged.map((annotation) => [annotation.id, annotation]));
+          annotations = Array.from(deduped.values());
+          return;
+        }
+
+        const newSession = await createSession(endpoint, pageUrl);
+        currentSessionId = newSession.id;
+        saveSessionId(pathname, newSession.id);
+        onSessionCreated?.(newSession.id);
+
+        if (localAnnotations.length > 0) {
+          await Promise.allSettled(
+            localAnnotations.map((annotation) =>
+              syncAnnotation(endpoint, newSession.id, {
+                ...annotation,
+                status: annotation.status ?? "pending"
+              })
+            )
+          );
+        }
+      } catch {
+        // Fall back to local mode.
+      }
+    };
+
+    initSession();
+  });
+
+  $effect(() => {
+    if (!endpoint || !mounted || !currentSessionId) return;
+
+    const eventSource = new EventSource(`${endpoint}/sessions/${currentSessionId}/events`);
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(event.data) as { payload?: Annotation & { id?: string; status?: string }; type?: string };
+        const payload = parsed.payload;
+        if (!payload?.id) return;
+
+        if (parsed.type === "annotation.deleted") {
+          annotations = annotations.filter((annotation) => annotation.id !== payload.id);
+          return;
+        }
+
+        if (payload.status === "resolved" || payload.status === "dismissed") {
+          annotations = annotations.filter((annotation) => annotation.id !== payload.id);
+          return;
+        }
+
+        annotations = annotations.some((annotation) => annotation.id === payload.id)
+          ? annotations.map((annotation) => (annotation.id === payload.id ? { ...annotation, ...payload } : annotation))
+          : [...annotations, payload as Annotation];
+      } catch {
+        // Ignore malformed events.
+      }
+    };
+
+    eventSource.addEventListener("annotation.updated", handler);
+    eventSource.addEventListener("annotation.deleted", handler);
+
+    return () => {
+      eventSource.removeEventListener("annotation.updated", handler);
+      eventSource.removeEventListener("annotation.deleted", handler);
+      eventSource.close();
+    };
+  });
+
+  $effect(() => {
     if (typeof document === "undefined") return;
     const enableCursor = isActive && !draft;
     document.body.classList.toggle("agentation-annotate-cursor", enableCursor);
@@ -1302,7 +1447,7 @@
   <Toolbar
     {isToolbarExpanded}
     {showToolbarEntrance}
-    annotationsCount={annotations.length}
+    annotationsCount={visibleAnnotations.length}
     {showMarkers}
     {showSettings}
     {tooltipsHiddenUntilMouseLeave}
@@ -1342,7 +1487,7 @@
   />
 
   <MarkersLayer
-    {annotations}
+    annotations={visibleAnnotations}
     {showMarkers}
     {hasPopup}
     {draft}
@@ -1410,7 +1555,7 @@
     placeholder={popupPlaceholder}
     accentColor={draft?.isMultiSelect ? "var(--agentation-color-green, #34c759)" : "var(--agentation-color-blue, #3c82f7)"}
     {editingAnnotationId}
-    {annotations}
+    annotations={visibleAnnotations}
     onDraftCommentChange={(value) => {
       draftComment = value;
     }}

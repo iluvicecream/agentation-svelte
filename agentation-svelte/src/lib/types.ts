@@ -21,9 +21,12 @@ export type Annotation = {
   computedStylesObj?: Record<string, string>;
   fullPath?: string;
   accessibility?: string;
+  status?: AnnotationStatus;
 };
 
 export type DraftAnnotation = Omit<Annotation, "id" | "timestamp" | "comment">;
+
+export type AnnotationStatus = "pending" | "acknowledged" | "resolved" | "dismissed";
 
 export type OutputMode = "compact" | "standard" | "detailed" | "forensic";
 
@@ -32,6 +35,8 @@ export type AgentationProps = {
   defaultOutputMode?: OutputMode;
   workspaceRoot?: string;
   endpoint?: string;
+  sessionId?: string;
+  onSessionCreated?: (sessionId: string) => void;
   onOpenEditor?: (action: EditorAction) => void;
   onAnnotationAdd?: (annotation: Annotation) => void;
   onAnnotationDelete?: (annotation: Annotation) => void;

@@ -1,6 +1,6 @@
 {
   "name": "@iluvicecream/agentation-svelte",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Svelte 5 toolbar for visual feedback annotations",
   "license": "PolyForm-Shield-1.0.0",
   "type": "module",

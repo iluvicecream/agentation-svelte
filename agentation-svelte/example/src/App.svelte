@@ -25,9 +25,16 @@
 </script>
 
 <main>
+  <nav class="navbar">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/docs">Docs</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+  </nav>
   <header>
     <p class="eyebrow">Agentation Svelte</p>
-    <h1>Annotate this page</h1>
+    <h1>Annotate <span class="gradient-text">Anything</span></h1>
     <p class="lead">
       Click <strong>Annotate</strong> in the floating toolbar, then click any element on the page to add feedback.
     </p>
@@ -42,8 +49,12 @@
 
     <article class="card alt">
       <h2>Feature card</h2>
-      <p>Click headings, cards, and links to capture semantic paths.</p>
       <a href="https://agentation.com" target="_blank" rel="noreferrer">View docs</a>
+    </article>
+
+    <article class="card">
+      <h2>Placeholder card</h2>
+      <p>This is a new placeholder card for testing.</p>
     </article>
   </section>
 
@@ -67,4 +78,5 @@
   onAnnotationDelete={onDelete}
   onAnnotationsClear={onClear}
   onCopy={onCopy}
+  endpoint="http://localhost:4747"
 />
