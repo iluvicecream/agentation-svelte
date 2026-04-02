@@ -1,4 +1,6 @@
 packages:
   - 'package'
   - 'package/example'
+  - 'agentation-svelte'
+  - 'agentation-svelte/example'
   - 'mcp'

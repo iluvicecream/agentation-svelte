@@ -1,0 +1,110 @@
+:root {
+  font-family: "IBM Plex Sans", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #e5ecff;
+  background: radial-gradient(circle at 20% 20%, #16345f 0%, #0b1020 40%, #070a14 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 64px 24px 140px;
+}
+
+.eyebrow {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #9cb4ff;
+  margin: 0;
+}
+
+h1 {
+  margin: 0.4rem 0 0.8rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.lead {
+  margin: 0;
+  color: #beccf8;
+  max-width: 680px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.card {
+  background: rgba(20, 29, 49, 0.72);
+  border: 1px solid rgba(173, 192, 255, 0.2);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.card h2 {
+  margin: 0 0 8px;
+}
+
+.card p {
+  color: #c7d4f6;
+}
+
+.card button,
+.card a {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #f5f8ff;
+  background: linear-gradient(120deg, #3479f7, #2059c4);
+  border: 0;
+}
+
+.card.alt {
+  background: rgba(28, 22, 46, 0.68);
+  border-color: rgba(212, 181, 255, 0.2);
+}
+
+.events {
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(10, 15, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.events h3 {
+  margin-top: 0;
+}
+
+.events ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.events li {
+  color: #d2defe;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  main {
+    padding: 40px 16px 120px;
+  }
+}
