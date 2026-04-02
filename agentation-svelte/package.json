@@ -1,6 +1,6 @@
 {
   "name": "@iluvicecream/agentation-svelte",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Svelte 5 toolbar for visual feedback annotations",
   "license": "PolyForm-Shield-1.0.0",
   "type": "module",
@@ -41,5 +41,9 @@
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iluvicecream/agentation.git"
   }
 }
